@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import express from 'express';
 import { db, incidents, processedWebhookEvents } from '@rize/db';
 import { eq } from 'drizzle-orm';

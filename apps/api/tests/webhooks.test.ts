@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import { webhooksRouter } from '../src/routes/webhooks';
+import { webhooksRouter } from '../src/routes/webhooks.js';
 import * as rizeRazorpay from '@rize/razorpay';
 import * as rizeAuditLedger from '@rize/audit-ledger';
 import { db, incidents, processedWebhookEvents } from '@rize/db';
