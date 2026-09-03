@@ -118,7 +118,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       const isControl = shouldAssignToControl(
         data.merchantId,
         merchantConfig.controlGroupRatio,
-        process.env.NODE_ENV === 'test' ? 'test-seed-123' : undefined
+        process.env.NODE_ENV === 'test' ? 'test-seed-123' : data.checkoutId
       );
 
       if (isControl) {
