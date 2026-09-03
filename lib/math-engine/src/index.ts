@@ -57,8 +57,16 @@ export function runInterventionTournament(
   };
 
   if (ctx.grossMarginRatio < ctx.minMarginFloor) {
-    DO_NOTHING.rejectionReason = `Gross margin ${(ctx.grossMarginRatio * 100).toFixed(1)}% below floor ${(ctx.minMarginFloor * 100).toFixed(1)}% — all interventions blocked.`;
-    return { winner: DO_NOTHING, candidates: [DO_NOTHING] };
+    const reason = `Gross margin ${(ctx.grossMarginRatio * 100).toFixed(1)}% below floor ${(ctx.minMarginFloor * 100).toFixed(1)}% — all interventions blocked.`;
+    DO_NOTHING.rejectionReason = reason;
+    return { 
+      winner: DO_NOTHING, 
+      candidates: [
+        { action: 'PAYMENT_RECOVERY_LINK', eligible: false, pRec: 0, discount: 0, msgCost: 0, eni: Number.NEGATIVE_INFINITY, rejectionReason: reason },
+        { action: 'TARGETED_DYNAMIC_DISCOUNT', eligible: false, pRec: 0, discount: 0, msgCost: 0, eni: Number.NEGATIVE_INFINITY, rejectionReason: reason },
+        DO_NOTHING
+      ] 
+    };
   }
 
   const candidates: Candidate[] = [];
