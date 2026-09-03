@@ -124,7 +124,7 @@ export function IncidentFeed() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
               <span style={{ fontSize: '1.25rem', fontWeight: '600', color: 'white' }}>
-                Checkout {currentIncident.id.slice(-6)}
+                Checkout #{currentIndex + 1}
               </span>
               <span style={{
                 background: 'rgba(138, 43, 226, 0.2)',
@@ -210,7 +210,7 @@ export function IncidentFeed() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', color: '#8A2BE2', fontWeight: '600', marginBottom: '8px' }}>
-                RIZE Nemotron AI
+                Rize AI
               </div>
               <div style={{ 
                 color: '#d1d5db', 

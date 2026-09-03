@@ -162,9 +162,10 @@ export async function generateWhyNot(
   const discountStr = (incidentData.discountOffered * 100).toFixed(0);
   const eniStr = incidentData.winningENI.toFixed(2);
   const precStr = (incidentData.winningPRec * 100).toFixed(1);
-  const fallback = `[FALLBACK] I offered this ${discountStr}% discount because the Expected Net Income was calculated as optimal ($${eniStr}) against the control group base rates, and my confidence score was highly defensible at ${precStr}%. Please add NEMOTRON_API_KEY to your .env file for real AI responses.`;
+  const fallback = `[FALLBACK] I offered this ${discountStr}% discount because the Expected Net Income was calculated as optimal ($${eniStr}) against the control group base rates, and my confidence score was highly defensible at ${precStr}%.`;
 
   if (!process.env.NEMOTRON_API_KEY || process.env.NEMOTRON_API_KEY === 'dummy_key') {
+    console.warn('API Key missing, returning fallback');
     return fallback;
   }
 
@@ -206,7 +207,7 @@ CRITICAL INSTRUCTION: You must output ONLY a valid JSON object containing your f
     const parsed = JSON.parse(jsonStr);
     return parsed.explanation || fallback;
   } catch (e) {
-    console.warn('AI API Error (falling back to mock):', e);
+    console.error('AI API Error (generateWhyNot):', e);
     return fallback;
   }
 }
@@ -222,9 +223,7 @@ export async function generateWhyNotWithTimeout(
     const result = await generateWhyNot(candidatesJson, incidentData, { signal: controller.signal });
     return result;
   } catch (err: any) {
-    if (err.name === 'AbortError') {
-      console.warn('generateWhyNot timed out, using fallback');
-    }
+    console.error('Timeout or other error in generateWhyNotWithTimeout:', err);
     const discountStr = (incidentData.discountOffered * 100).toFixed(0);
     const eniStr = incidentData.winningENI.toFixed(2);
     const precStr = (incidentData.winningPRec * 100).toFixed(1);
