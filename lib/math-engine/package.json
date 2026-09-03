@@ -1,13 +1,21 @@
 {
   "name": "@rize/math-engine",
   "version": "1.0.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "test": "vitest run"
+    "build": "tsc",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
-  }
+  },
+  "dependencies": {}
 }

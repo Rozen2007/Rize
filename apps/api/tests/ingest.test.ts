@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../src/index.js';
-import { db, incidents, auditLedger, merchants } from '@rize/db';
+import { db, incidents, auditLedger, merchants, processedWebhookEvents, cohortStats } from '@rize/db';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -13,11 +13,11 @@ vi.mock('@rize/ai', () => ({
 
 // We mock Razorpay to prevent network calls
 vi.mock('@rize/razorpay', () => ({
-  createPaymentLink: vi.fn(),
+  createRazorpayLink: vi.fn(),
 }));
 
 import { classifyFailureWithTimeout, generateCopyWithTimeout } from '@rize/ai';
-import { createPaymentLink } from '@rize/razorpay';
+import { createRazorpayLink } from '@rize/razorpay';
 
 describe('POST /internal/ingest', () => {
   const validKey = 'demo_key'; // Default key in the endpoint
@@ -26,10 +26,12 @@ describe('POST /internal/ingest', () => {
     vi.clearAllMocks();
     
     // Clear out tables
+    await db.delete(processedWebhookEvents).catch(() => {});
+    await db.delete(auditLedger).catch(() => {});
     await db.delete(auditLedger);
     await db.delete(incidents);
+    await db.delete(cohortStats).catch(() => {});
     await db.delete(merchants);
-    
     // Seed merchant
     await db.insert(merchants).values({ id: 'm1', name: 'Test', webhookSecret: 'secret' });
     
@@ -41,7 +43,7 @@ describe('POST /internal/ingest', () => {
     
     (generateCopyWithTimeout as any).mockResolvedValue('Come back!');
     
-    (createPaymentLink as any).mockResolvedValue({
+    (createRazorpayLink as any).mockResolvedValue({
       id: 'plink_123',
       short_url: 'https://rzp.io/l/test'
     });
@@ -76,11 +78,11 @@ describe('POST /internal/ingest', () => {
     
     const dbIncidents = await db.select().from(incidents);
     expect(dbIncidents.length).toBe(1);
-    expect(dbIncidents[0].status).toBe('SKIPPED_MISSING_CONTACT');
+    expect(dbIncidents[0]!.status).toBe('SKIPPED_MISSING_CONTACT');
     
     const dbAudits = await db.select().from(auditLedger);
     expect(dbAudits.length).toBe(1);
-    expect(dbAudits[0].eventType).toBe('SKIPPED_MISSING_CONTACT');
+    expect(dbAudits[0]!.eventType).toBe('SKIPPED_MISSING_CONTACT');
   });
 
   it('10.E: Control group assignment -> CONTROL_HELDOUT + audit', async () => {
@@ -91,10 +93,10 @@ describe('POST /internal/ingest', () => {
     expect(res.status).toBe(200);
     
     const dbIncidents = await db.select().from(incidents);
-    expect(dbIncidents[0].status).toBe('CONTROL_HELDOUT');
+    expect(dbIncidents[0]!.status).toBe('CONTROL_HELDOUT');
     
     const dbAudits = await db.select().from(auditLedger);
-    expect(dbAudits[0].eventType).toBe('CONTROL_HELDOUT');
+    expect(dbAudits[0]!.eventType).toBe('CONTROL_HELDOUT');
   });
 
   it('10.F: Margin floor blocks discount -> BLOCKED_INSUFFICIENT_MARGIN + audit', async () => {
@@ -105,11 +107,11 @@ describe('POST /internal/ingest', () => {
     const res = await request(app).post('/internal/ingest').set('x-internal-key', validKey).send(payload);
     
     const dbIncidents = await db.select().from(incidents);
-    expect(dbIncidents[0].status).toBe('BLOCKED_INSUFFICIENT_MARGIN');
-    expect(dbIncidents[0].winningAction).toBe('DO_NOTHING');
+    expect(dbIncidents[0]!.status).toBe('BLOCKED_INSUFFICIENT_MARGIN');
+    expect(dbIncidents[0]!.winningAction).toBe('DO_NOTHING');
     
     const dbAudits = await db.select().from(auditLedger);
-    expect(dbAudits[0].eventType).toBe('ACTION_BLOCKED_POLICY');
+    expect(dbAudits[0]!.eventType).toBe('ACTION_BLOCKED_POLICY');
   });
 
   it('10.I: classifyFailure timeout uses fallback (mocked)', async () => {
@@ -124,7 +126,7 @@ describe('POST /internal/ingest', () => {
     const dbIncidents = await db.select().from(incidents);
     // Since discount is ineligible due to confidence, PAYMENT_RECOVERY_LINK or DO_NOTHING should win.
     // 1000 * 0.40 = 400. 1000 * 0.02 = 20. pRec = 0.35. ENI = 0.35 * 380 - 1.5 = 131.5. link wins!
-    expect(dbIncidents[0].winningAction).toBe('PAYMENT_RECOVERY_LINK');
+    expect(dbIncidents[0]!.winningAction).toBe('PAYMENT_RECOVERY_LINK');
   });
 
   it('10.B / 10.H: Valid ingest with PRICE_FRICTION creates incident + audit + link', async () => {
@@ -134,17 +136,17 @@ describe('POST /internal/ingest', () => {
     expect(res.status).toBe(200);
     
     const dbIncidents = await db.select().from(incidents);
-    expect(dbIncidents[0].status).toBe('EXECUTED_PENDING_SETTLEMENT');
-    expect(dbIncidents[0].winningAction).toBe('TARGETED_DYNAMIC_DISCOUNT');
-    expect(dbIncidents[0].razorpayLinkId).toBe('plink_123');
+    expect(dbIncidents[0]!.status).toBe('EXECUTED_PENDING_SETTLEMENT');
+    expect(dbIncidents[0]!.winningAction).toBe('TARGETED_DYNAMIC_DISCOUNT');
+    expect(dbIncidents[0]!.razorpayLinkId).toBe('plink_123');
     
     const dbAudits = await db.select().from(auditLedger);
     expect(dbAudits.length).toBe(1);
-    expect(dbAudits[0].eventType).toBe('ACTION_EXECUTED');
+    expect(dbAudits[0]!.eventType).toBe('ACTION_EXECUTED');
   });
 
   it('10.J: Transaction rollback on Razorpay failure', async () => {
-    (createPaymentLink as any).mockRejectedValue(new Error('Rate limited'));
+    (createRazorpayLink as any).mockRejectedValue(new Error('Rate limited'));
     
     const payload = { merchantId: 'm1', orderValue: 1000, errorCode: 'HIGH_PRICE', errorDesc: 'desc', device: 'mobile', paymentMethod: 'upi', customerPhone: '999', checkoutId: 'chk1', razorpayEventId: 'ev1', mockMerchantConfig: { controlGroupRatio: 0.0, grossMarginRatio: 0.40, mdrRate: 0.02, maxDiscountCap: 0.15, minMarginFloor: 0.10, minClassifierConfidence: 0.8 } };
     
@@ -162,16 +164,16 @@ describe('POST /internal/ingest', () => {
     // Wait, to force DO_NOTHING, let's make orderValue small enough so Link ENI is negative.
     // Order = 10. Gross profit = 4. MDR = 0.2. Profit = 3.8. 0.55 * 3.8 = 2.09. 2.09 - 1.5 = 0.59.
     // Order = 5. Profit = 2. 0.55 * 1.9 = 1.045 - 1.5 < 0. Link ENI negative. DO_NOTHING wins.
-    const payload = { merchantId: 'm1', orderValue: 5, errorCode: 'DECLINED', errorDesc: 'desc', device: 'mobile', paymentMethod: 'upi', customerPhone: '999', checkoutId: 'chk1', razorpayEventId: 'ev1', mockMerchantConfig: { controlGroupRatio: 0.0, grossMarginRatio: 0.40, mdrRate: 0.02, maxDiscountCap: 0.15, minMarginFloor: 0.10, minClassifierConfidence: 0.8 } };
+    const payload = { merchantId: 'm1', orderValue: 3, errorCode: 'DECLINED', errorDesc: 'desc', device: 'mobile', paymentMethod: 'upi', customerPhone: '999', checkoutId: 'chk1', razorpayEventId: 'ev1', mockMerchantConfig: { controlGroupRatio: 0.0, grossMarginRatio: 0.40, mdrRate: 0.02, maxDiscountCap: 0.15, minMarginFloor: 0.10, minClassifierConfidence: 0.8 } };
     
     const res = await request(app).post('/internal/ingest').set('x-internal-key', validKey).send(payload);
     
     const dbIncidents = await db.select().from(incidents);
-    expect(dbIncidents[0].winningAction).toBe('DO_NOTHING');
-    expect(dbIncidents[0].status).toBe('PENDING'); // or EXECUTED_PENDING_SETTLEMENT, wait I set it to PENDING in my route for DO_NOTHING.
-    expect(dbIncidents[0].razorpayLinkId).toBeNull();
+    expect(dbIncidents[0]!.winningAction).toBe('DO_NOTHING');
+    expect(dbIncidents[0]!.status).toBe('PENDING'); // or EXECUTED_PENDING_SETTLEMENT, wait I set it to PENDING in my route for DO_NOTHING.
+    expect(dbIncidents[0]!.razorpayLinkId).toBeNull();
     
     const dbAudits = await db.select().from(auditLedger);
-    expect(dbAudits[0].eventType).toBe('DO_NOTHING_CHOSEN');
+    expect(dbAudits[0]!.eventType).toBe('DO_NOTHING_CHOSEN');
   });
 });

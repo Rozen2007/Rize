@@ -7,7 +7,7 @@
     "test": "npm run test --workspaces"
   },
   "workspaces": [
-    "artifacts/*",
+    "apps/*",
     "lib/*"
   ],
   "devDependencies": {

@@ -1,115 +1,118 @@
-import { Router, type Request, type Response } from 'express';
-import express from 'express';
-import { db, incidents, processedWebhookEvents } from '@rize/db';
-import { eq } from 'drizzle-orm';
+import { Router, type Request, type Response, type RequestHandler } from 'express';
+import { db, incidents, cohortStats } from '@rize/db';
+import { eq, sql } from 'drizzle-orm';
 import { verifyWebhookSignature } from '@rize/razorpay';
 import { commitAuditBlockAtomic } from '@rize/audit-ledger';
 
 export const webhooksRouter: Router = Router();
 
-// Define terminal states that shouldn't be transitioned out of
-const TERMINAL_STATES = ['RECOVERED', 'EXPIRED', 'SKIPPED_MISSING_CONTACT', 'CONTROL_HELDOUT', 'BLOCKED_INSUFFICIENT_MARGIN'];
-
-// 1. Mount raw body parser first to preserve exact bytes for HMAC validation
-webhooksRouter.post('/razorpay', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
-  try {
-    const rawBody = req.body;
-    
-    // 2. Extract signature and event ID
-    const signature = req.headers['x-razorpay-signature'] as string;
-    const eventId = req.headers['x-razorpay-event-id'] as string;
-    
-    if (!signature || !eventId) {
-      return res.status(400).json({ error: 'Missing required Razorpay headers' });
-    }
-
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
-    if (!secret) {
-      console.error('RAZORPAY_WEBHOOK_SECRET is not set');
-      return res.status(500).json({ error: 'Internal server error' });
-    }
-
-    // 3. Verify signature using @rize/razorpay SDK wrapper
-    const rawBodyString = typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8');
-    const isValid = verifyWebhookSignature(rawBodyString, signature, secret);
-
-    if (!isValid) {
-      return res.status(400).json({ error: 'Invalid signature' });
-    }
-
-    // 4. Safely parse JSON payload
-    let payload: any;
+// Keep raw body for verification
+webhooksRouter.post(
+  '/razorpay',
+  ((req: Request, res: Response) => {
     try {
-      payload = JSON.parse(rawBodyString);
-    } catch (e) {
-      return res.status(400).json({ error: 'Malformed JSON payload' });
+      const signature = req.headers['x-razorpay-signature'] as string;
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_secret';
+
+      // We assume express.raw() is configured in index.ts for this route
+      const rawBody = req.body.toString();
+
+      if (!verifyWebhookSignature(rawBody, signature, secret)) {
+        res.status(401).json({ error: 'Invalid signature' });
+        return; // Early return for invalid signature
+      }
+
+      const payload = JSON.parse(rawBody);
+      const eventType = payload.event;
+
+      if (
+        eventType !== 'payment_link.paid' &&
+        eventType !== 'payment_link.expired'
+      ) {
+        // Not a payment link event, but valid signature
+        res.status(200).json({ status: 'ignored' });
+        return;
+      }
+
+      const paymentLink = payload.payload.payment_link.entity;
+      const incidentId = paymentLink.reference_id;
+
+      if (!incidentId) {
+        res.status(400).json({ error: 'Missing reference_id' });
+        return;
+      }
+
+      // Important: Ensure we don't hold the connection open unnecessarily
+      // In a real app this would be a background job, but we'll await it for the demo
+      handleWebhookEvent(eventType, incidentId)
+        .then(() => {
+          // Success
+        })
+        .catch((error) => {
+          console.error('Webhook processing error:', error);
+        });
+
+      // Always return 200 immediately to Razorpay if signature was valid
+      res.status(200).json({ status: 'received' });
+    } catch (error) {
+      console.error('Webhook error:', error);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }) as RequestHandler
+);
+
+/**
+ * Core business logic for handling webhook events
+ */
+async function handleWebhookEvent(eventType: string, incidentId: string) {
+  await db.transaction(async (tx) => {
+    // 1. Fetch incident
+    const [incident] = await tx
+      .select()
+      .from(incidents)
+      .where(eq(incidents.id, incidentId))
+      .limit(1);
+
+    if (!incident || incident.status !== 'EXECUTED_PENDING_SETTLEMENT') {
+      return; // Already processed or not found
     }
 
-    // 5. Atomic transaction for idempotency and state updates
-    await db.transaction(async (tx) => {
-      // Enforce robust idempotency using onConflictDoNothing
-      const insertResult = await tx.insert(processedWebhookEvents)
-        .values({
-          eventId,
-          eventType: payload.event,
-        })
-        .onConflictDoNothing();
-      
-      // Check if rows were inserted. If 0, it was a conflict (duplicate event ID).
-      if (insertResult.rowCount === 0) {
-        console.log(`Ignoring duplicate webhook eventId: ${eventId}`);
-        return; // Exits transaction block cleanly
+    const isPaid = eventType === 'payment_link.paid';
+    const newStatus = isPaid ? 'RECOVERED' : 'EXPIRED';
+
+    // 2. Update Incident
+    await tx
+      .update(incidents)
+      .set({ status: newStatus as any, updatedAt: new Date() })
+      .where(eq(incidents.id, incidentId));
+
+    // 3. Update Cohort Stats (if we know the cohort key)
+    if (incident.affectedCohort) {
+      if (isPaid) {
+        // Increment successes and attempts
+        await tx
+          .update(cohortStats)
+          .set({
+            totalSuccesses: sql`${cohortStats.totalSuccesses} + 1`,
+            totalAttempts: sql`${cohortStats.totalAttempts} + 1`,
+          })
+          .where(eq(cohortStats.cohortKey, incident.affectedCohort));
+      } else {
+        // Increment attempts only
+        await tx
+          .update(cohortStats)
+          .set({
+            totalAttempts: sql`${cohortStats.totalAttempts} + 1`,
+          })
+          .where(eq(cohortStats.cohortKey, incident.affectedCohort));
       }
+    }
 
-      // 6. Defensively extract incidentId from the payload notes
-      const incidentId = payload.payload?.payment_link?.entity?.notes?.incidentId;
-      if (!incidentId) {
-        console.warn(`Webhook missing incidentId in notes for eventId: ${eventId}`);
-        return; // Ack and return 200 via transaction exit
-      }
-
-      // Lookup the incident
-      const incidentList = await tx.select().from(incidents).where(eq(incidents.id, incidentId));
-      const incident = incidentList[0];
-
-      if (!incident) {
-        console.error(`Webhook incident not found: ${incidentId}`);
-        return; // Ack and return 200 via transaction exit
-      }
-
-      // Check if already in a terminal state
-      if (incident.status && TERMINAL_STATES.includes(incident.status)) {
-        console.log(`Skipping update for incident ${incidentId}, already in terminal state: ${incident.status}`);
-        return; // Ack and return 200 via transaction exit
-      }
-
-      // 7. Event Mapping
-      let newState: typeof incidents.$inferInsert.status | null = null;
-      if (payload.event === 'payment_link.paid') {
-        newState = 'RECOVERED';
-      } else if (payload.event === 'payment_link.expired' || payload.event === 'payment_link.cancelled') {
-        newState = 'EXPIRED';
-      }
-
-      if (newState) {
-        // Update incident state
-        await tx.update(incidents)
-          .set({ status: newState, updatedAt: new Date() })
-          .where(eq(incidents.id, incident.id));
-
-        // 8. Write an audit block atomically using the original winning ENI
-        await commitAuditBlockAtomic(tx, {
-          incidentId: incident.id,
-          eventType: newState,
-          eniScore: incident.winningENI || 0,
-        });
-      }
+    // 4. Audit Ledger
+    await commitAuditBlockAtomic(tx, {
+      incidentId,
+      eventType: isPaid ? 'WEBHOOK_PAID' : 'WEBHOOK_EXPIRED',
+      eniScore: 0
     });
-
-    // 9. Return success
-    return res.status(200).json({ status: 'ok' });
-  } catch (error) {
-    console.error('Webhook processing error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
+  });
+}

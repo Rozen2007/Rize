@@ -122,6 +122,9 @@ importers:
 
   lib/math-engine:
     devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
@@ -130,10 +133,6 @@ importers:
         version: 1.6.1(@types/node@26.4.1)(lightningcss@1.33.0)
 
   lib/razorpay:
-    dependencies:
-      razorpay:
-        specifier: ^2.9.2
-        version: 2.9.8(debug@4.4.3)
     devDependencies:
       '@types/node':
         specifier: ^20.0.0

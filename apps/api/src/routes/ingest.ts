@@ -1,15 +1,15 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response, type RequestHandler } from 'express';
 import crypto from 'crypto';
 import { z } from 'zod';
 import seedrandom from 'seedrandom';
 import { db, incidents, cohortStats } from '@rize/db';
 import { eq, and } from 'drizzle-orm';
 import { classifyFailureWithTimeout, generateCopyWithTimeout } from '@rize/ai';
-import { runInterventionTournament, ContextInput, FailureReason } from '@rize/math-engine';
-import { createPaymentLink } from '@rize/razorpay';
+import { runInterventionTournament, type TournamentContext as ContextInput } from '@rize/math-engine';
+import { createRazorpayLink } from '@rize/razorpay';
 import { commitAuditBlockAtomic } from '@rize/audit-ledger';
 
-export const ingestRouter = Router();
+export const ingestRouter: Router = Router();
 
 // Zod schema for input validation
 const ingestSchema = z.object({
@@ -129,7 +129,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
           checkoutId: data.checkoutId,
           customerPhone: data.customerPhone,
           orderValue: data.orderValue,
-          failureReason: failureReason as FailureReason,
+          failureReason: failureReason as any,
           device: data.device,
           paymentMethod: data.paymentMethod,
           affectedCohort: cohortKey,
@@ -164,12 +164,16 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       });
 
       const ctxInput: ContextInput = {
+        device: data.device,
+        paymentMethod: data.paymentMethod,
+        msgCost: 1.5,
         orderValue: data.orderValue,
-        failureReason: failureReason as FailureReason,
+        failureReason: failureReason as any,
         classifierConfidence,
         grossMarginRatio: merchantConfig.grossMarginRatio,
         mdrRate: merchantConfig.mdrRate,
-        maxDiscountCap: merchantConfig.maxDiscountCap,
+        discountCap: merchantConfig.maxDiscountCap,
+        maxDiscountPercentage: 0.5,
         minMarginFloor: merchantConfig.minMarginFloor,
         minClassifierConfidence: merchantConfig.minClassifierConfidence
       };
@@ -183,7 +187,9 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       let eventTypeStr = 'ACTION_EXECUTED';
       
       const grossProfit = data.orderValue * merchantConfig.grossMarginRatio;
-      const postDiscountMargin = (grossProfit - winner.discount) / data.orderValue;
+      const postDiscountMargin = (grossProfit - (winner.discountAmount || 0)) / data.orderValue;
+      
+      console.log('DEBUG 10.F:', { winnerAction: winner.action, discountAmount: winner.discountAmount, grossProfit, postDiscountMargin, minMarginFloor: merchantConfig.minMarginFloor });
       
       if (postDiscountMargin < merchantConfig.minMarginFloor) {
         finalStatus = 'BLOCKED_INSUFFICIENT_MARGIN';
@@ -194,20 +200,33 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       }
 
       // Step 6: Action Execution
-      let razorpayLinkId = undefined;
-      let razorpayLinkUrl = undefined;
+      let razorpayLinkId: string | null = null;
+      let razorpayLinkUrl: string | null = null;
 
       if (finalStatus === 'EXECUTING' && winner.action !== 'DO_NOTHING') {
         // AI Copy Generation
-        const copyMsg = await generateCopyWithTimeout(winner.action, data.orderValue - winner.discount);
+        const copyMsg = await generateCopyWithTimeout(winner.action, data.orderValue - (winner.discountAmount || 0));
         
-        // Execute real action
         try {
-          const linkResult = await createPaymentLink(
-            incidentId,
-            data.orderValue,
-            winner.discount,
-            data.customerPhone
+          const linkResult = await createRazorpayLink(
+            process.env.RAZORPAY_KEY_ID || 'test',
+            process.env.RAZORPAY_KEY_SECRET || 'test',
+            {
+              reference_id: incidentId,
+              amount: data.orderValue,
+              currency: 'INR',
+              accept_partial: false,
+              description: copyMsg,
+              customer: {
+                name: 'Demo User',
+                contact: data.customerPhone || '9999999999',
+                email: 'demo@example.com'
+              },
+              notify: { sms: true, email: false },
+              reminder_enable: false,
+              callback_url: 'https://example.com/callback',
+              callback_method: 'get'
+            }
           );
           razorpayLinkId = linkResult.id;
           razorpayLinkUrl = linkResult.short_url;
@@ -229,17 +248,17 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
         checkoutId: data.checkoutId,
         customerPhone: data.customerPhone,
         orderValue: data.orderValue,
-        failureReason: failureReason as FailureReason,
+        failureReason: failureReason as any,
         device: data.device,
         paymentMethod: data.paymentMethod,
         affectedCohort: cohortKey,
         isControl: false,
-        winningAction: winner.action,
+        winningAction: winner.action as any,
         winningENI: winner.eni,
         winningPRec: winner.pRec,
-        discountOffered: winner.discount,
+        discountOffered: winner.discountAmount || 0,
         candidatesJson: JSON.stringify(tournamentResult),
-        rejectionReason: winner.rejectionReason,
+        rejectionReason: winner.rejectionReason || null,
         razorpayLinkId,
         razorpayLinkUrl,
         status: finalStatus,
@@ -254,9 +273,12 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
     });
 
     return res.status(200).json({ status: 'ok', incidentId: 'created' });
-  } catch (error: any) {
-    console.error('Ingest processing error:', error);
-    // Explicit transaction rollback on Razorpay failure or other exceptions
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
-  }
-});
+    } catch (e: any) {
+      console.error('Ingest processing error:', e);
+      if (e.name === 'ZodError') {
+        res.status(400).json({ error: 'Validation failed', details: e.errors });
+        return;
+      }
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
