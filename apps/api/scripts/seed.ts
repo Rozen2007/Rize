@@ -8,6 +8,17 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') }); // It's in
 
 import { db, merchants, incidents, cohortStats } from '@rize/db';
 
+// Deterministic RNG (Mulberry32)
+function mulberry32(a: number) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+const random = mulberry32(1234567);
+
 async function seed() {
   console.log('Seeding merchant...');
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_secret_123';
@@ -23,130 +34,111 @@ async function seed() {
     controlGroupRatio: 0.10,
   }).onConflictDoNothing();
 
-  console.log('Generating 60 incidents...');
-  
-  // Clean up old synthetic data
-  await db.delete(cohortStats).catch(() => {}); // clean all
+  console.log('Cleaning up old synthetic data...');
+  await db.delete(cohortStats).catch(() => {});
   await db.delete(incidents).catch(() => {});
   
   const incidentData: any[] = [];
   let idCounter = 1;
 
-  // PRICE_FRICTION: 24 incidents, 72% success (17 recovered)
-  for (let i = 0; i < 24; i++) {
-    const isControl = i % 10 === 0;
-    let status;
-    if (isControl) {
-      status = i % 3 === 0 ? 'RECOVERED' : 'CONTROL_HELDOUT';
-    } else {
-      status = i % 3 !== 0 ? 'RECOVERED' : 'EXPIRED'; // ~66% recovery for treatment
+  // Base recovery probabilities based on action and failure reason
+  const getSimulatedOutcome = (failureReason: string, actionType: string, isControl: boolean) => {
+    if (isControl || actionType === 'DO_NOTHING') return random() < 0.05 ? 'RECOVERED' : 'EXPIRED'; // 5% baseline
+
+    if (failureReason === 'PRICE_FRICTION') {
+      if (actionType === 'TARGETED_DYNAMIC_DISCOUNT') return random() < 0.72 ? 'RECOVERED' : 'EXPIRED';
+      if (actionType === 'PAYMENT_RECOVERY_LINK') return random() < 0.35 ? 'RECOVERED' : 'EXPIRED';
+    } else if (failureReason === 'AUTH_TIMEOUT') {
+      if (actionType === 'PAYMENT_RECOVERY_LINK') return random() < 0.45 ? 'RECOVERED' : 'EXPIRED';
+    } else if (failureReason === 'EXPIRED_CARD') {
+      if (actionType === 'PAYMENT_RECOVERY_LINK') return random() < 0.38 ? 'RECOVERED' : 'EXPIRED';
+    } else if (failureReason === 'BANK_DECLINE') {
+      if (actionType === 'PAYMENT_RECOVERY_LINK') return random() < 0.10 ? 'RECOVERED' : 'EXPIRED';
     }
+    return 'EXPIRED';
+  };
+
+  const generateIncidents = (count: number, isHistorical: boolean) => {
+    const batchId = isHistorical ? null : 'demo_batch_1';
     
-      const discountOffered = Math.floor(Math.random() * 10) + 5; // 5% to 14%
-      const candidatesJson = JSON.stringify([
-        { action: 'TARGETED_DYNAMIC_DISCOUNT', discountOffered: discountOffered / 100, eni: 50.0, pRec: 0.72 },
-        { action: 'TARGETED_DYNAMIC_DISCOUNT', discountOffered: (discountOffered + 5) / 100, eni: 45.0, pRec: 0.85 },
-        { action: 'PAYMENT_RECOVERY_LINK', discountOffered: 0, eni: 20.0, pRec: 0.40 }
-      ]);
-      const orderVal = Math.floor(Math.random() * 5000) + 500;
+    // Distribution roughly matches original: 40% PF, 30% AT, 20% EC, 10% BD
+    for (let i = 0; i < count; i++) {
+      const isControl = random() < 0.10; // 10% control group
       
+      let failureReason = 'PRICE_FRICTION';
+      let device = 'mobile';
+      let paymentMethod = 'upi';
+      
+      const r = random();
+      if (r > 0.9) { failureReason = 'BANK_DECLINE'; device = 'desktop'; paymentMethod = 'card'; }
+      else if (r > 0.7) { failureReason = 'EXPIRED_CARD'; device = 'mobile'; paymentMethod = 'card'; }
+      else if (r > 0.4) { failureReason = 'AUTH_TIMEOUT'; device = 'desktop'; paymentMethod = 'upi'; }
+      else if (r > 0.2) { device = 'desktop'; paymentMethod = 'card'; }
+
+      const cohortKey = `${device}:${failureReason}:${paymentMethod}`;
+      const orderVal = Math.floor(random() * 5000) + 500;
+      
+      let winningAction = 'DO_NOTHING';
+      let discountOffered = 0;
+
+      // Unbiased random assignment of actions (Uniform over eligible)
+      if (!isControl) {
+        if (failureReason === 'PRICE_FRICTION') {
+          const acts = ['TARGETED_DYNAMIC_DISCOUNT', 'PAYMENT_RECOVERY_LINK', 'DO_NOTHING'];
+          winningAction = acts[Math.floor(random() * acts.length)]!;
+        } else {
+          const acts = ['PAYMENT_RECOVERY_LINK', 'DO_NOTHING'];
+          winningAction = acts[Math.floor(random() * acts.length)]!;
+        }
+      }
+
+      if (winningAction === 'TARGETED_DYNAMIC_DISCOUNT') {
+        discountOffered = (Math.floor(random() * 10) + 5) / 100; // 5% to 14%
+      }
+
+      const status = getSimulatedOutcome(failureReason, winningAction, isControl);
+      const eniScore = winningAction === 'DO_NOTHING' ? 0.0 : (orderVal * 0.4 * (1 - discountOffered));
+
       incidentData.push({
-        id: `inc_pf_${idCounter++}`,
+        id: `inc_${idCounter++}`,
         merchantId: 'test',
-        razorpayEventId: `event_pf_${idCounter}`,
-        checkoutId: `checkout_pf_${idCounter}`,
-        failureReason: 'PRICE_FRICTION',
-        device: i < 14 ? 'mobile' : 'desktop',
-        paymentMethod: i % 2 === 0 ? 'card' : 'upi',
-        affectedCohort: `${i < 14 ? 'mobile' : 'desktop'}:PRICE_FRICTION:${i % 2 === 0 ? 'card' : 'upi'}`,
+        razorpayEventId: `event_seed_${idCounter}`,
+        batchId,
+        checkoutId: `checkout_seed_${idCounter}`,
+        failureReason,
+        device,
+        paymentMethod,
+        affectedCohort: cohortKey,
         orderValue: orderVal,
         isControl,
-        winningAction: 'TARGETED_DYNAMIC_DISCOUNT',
-        winningENI: orderVal * 0.4 * (1 - (discountOffered/100)), // dynamic ENI
-        winningPRec: 0.72 + (Math.random() * 0.2), // 72% to 92%
-        discountOffered: discountOffered / 100,
-        candidatesJson,
-        status,
+        winningAction,
+        winningENI: eniScore,
+        winningPRec: random() * 0.5 + 0.3, // Mock PRec
+        discountOffered,
+        candidatesJson: '[]',
+        status: isControl ? (status === 'RECOVERED' ? 'RECOVERED' : 'CONTROL_HELDOUT') : status,
       });
-  }
+    }
+  };
 
-  // AUTH_TIMEOUT: 18 incidents, 45% success (8 recovered)
-  for (let i = 0; i < 18; i++) {
-    const isControl = i % 10 === 0;
-    incidentData.push({
-      id: `inc_at_${idCounter++}`,
-      merchantId: 'test',
-      razorpayEventId: `event_at_${idCounter}`,
-      checkoutId: `checkout_at_${idCounter}`,
-      failureReason: 'AUTH_TIMEOUT',
-      device: i % 2 === 0 ? 'mobile' : 'desktop',
-      paymentMethod: i % 2 === 0 ? 'card' : 'upi',
-      affectedCohort: `${i % 2 === 0 ? 'mobile' : 'desktop'}:AUTH_TIMEOUT:${i % 2 === 0 ? 'card' : 'upi'}`,
-      orderValue: Math.floor(Math.random() * 5000) + 500,
-      isControl,
-      winningAction: 'DO_NOTHING',
-      winningENI: 0.0,
-      winningPRec: 0.45,
-      candidatesJson: '{}',
-      status: i % 3 === 0 ? 'RECOVERED' : (isControl ? 'CONTROL_HELDOUT' : 'EXPIRED'),
-    });
-  }
+  console.log('Generating ~120 historical incidents (for Bayesian priors)...');
+  generateIncidents(120, true);
 
-  // EXPIRED_CARD: 12 incidents, 38% success (4 recovered - wait, 12 * 0.38 is ~4.5)
-  for (let i = 0; i < 12; i++) {
-    const isControl = i % 10 === 0;
-    incidentData.push({
-      id: `inc_ec_${idCounter++}`,
-      merchantId: 'test',
-      razorpayEventId: `event_ec_${idCounter}`,
-      checkoutId: `checkout_ec_${idCounter}`,
-      failureReason: 'EXPIRED_CARD',
-      device: 'mobile', // simplfied
-      paymentMethod: i < 8 ? 'card' : 'upi', // 70% card
-      affectedCohort: `mobile:EXPIRED_CARD:${i < 8 ? 'card' : 'upi'}`,
-      orderValue: Math.floor(Math.random() * 5000) + 500,
-      isControl,
-      winningAction: 'DO_NOTHING',
-      winningENI: 0.0,
-      winningPRec: 0.38,
-      candidatesJson: '{}',
-      status: i % 4 === 0 ? 'RECOVERED' : (isControl ? 'CONTROL_HELDOUT' : 'EXPIRED'),
-    });
-  }
-
-  // BANK_DECLINE: 6 incidents, 10% success (1 recovered)
-  for (let i = 0; i < 6; i++) {
-    const isControl = i % 10 === 0;
-    incidentData.push({
-      id: `inc_bd_${idCounter++}`,
-      merchantId: 'test',
-      razorpayEventId: `event_bd_${idCounter}`,
-      checkoutId: `checkout_bd_${idCounter}`,
-      failureReason: 'BANK_DECLINE',
-      device: 'desktop', // simplified
-      paymentMethod: i < 5 ? 'card' : 'upi', // 80% card
-      affectedCohort: `desktop:BANK_DECLINE:${i < 5 ? 'card' : 'upi'}`,
-      orderValue: Math.floor(Math.random() * 5000) + 500,
-      isControl,
-      winningAction: 'DO_NOTHING',
-      winningENI: 0.0,
-      winningPRec: 0.10,
-      candidatesJson: '{}',
-      status: i % 5 === 0 ? 'RECOVERED' : (isControl ? 'CONTROL_HELDOUT' : 'EXPIRED'),
-    });
-  }
+  console.log('Generating 60 live demo incidents...');
+  generateIncidents(60, false);
 
   await db.insert(incidents).values(incidentData).onConflictDoNothing();
 
-  // Aggregate cohort stats
-  console.log('Aggregating cohort stats...');
-  const cohortStatsData = computeCohortStats(incidentData);
+  // Aggregate cohort stats ONLY from historical incidents to prevent lookahead bias
+  console.log('Aggregating historical cohort stats...');
+  const historicalIncidents = incidentData.filter(inc => inc.batchId === null);
+  const cohortStatsData = computeCohortStats(historicalIncidents);
   
   if (cohortStatsData.length > 0) {
     await db.insert(cohortStats).values(cohortStatsData as any[]).onConflictDoNothing();
   }
 
-  console.log(`✅ Seeded ${incidentData.length} incidents and ${cohortStatsData.length} cohort stats`);
+  console.log(`✅ Seeded ${incidentData.length} total incidents and ${cohortStatsData.length} cohort stats`);
   process.exit(0);
 }
 
@@ -154,7 +146,10 @@ function computeCohortStats(incidentsList: any[]) {
   const map = new Map();
   
   for (const inc of incidentsList) {
-    const key = `${inc.device}:${inc.failureReason}:${inc.paymentMethod}`;
+    if (inc.isControl) continue; // Control group actions shouldn't pollute intervention stats
+    
+    // Group by both cohortKey AND actionType to preserve unbiased Bayesian estimates
+    const key = `${inc.affectedCohort}|${inc.winningAction}`;
     
     if (!map.has(key)) {
       map.set(key, { totalAttempts: 0, totalSuccesses: 0 });
@@ -168,13 +163,13 @@ function computeCohortStats(incidentsList: any[]) {
   }
 
   let statId = 1;
-  return Array.from(map.entries()).map(([cohortKey, stats]) => {
-    const reason = cohortKey.split(':')[1];
+  return Array.from(map.entries()).map(([keyStr, stats]) => {
+    const [cohortKey, actionType] = keyStr.split('|');
     return {
       id: `cs_${statId++}`,
       cohortKey,
       merchantId: 'test',
-      actionType: reason === 'PRICE_FRICTION' ? 'TARGETED_DYNAMIC_DISCOUNT' : 'DO_NOTHING',
+      actionType,
       totalAttempts: stats.totalAttempts,
       totalSuccesses: stats.totalSuccesses,
     };

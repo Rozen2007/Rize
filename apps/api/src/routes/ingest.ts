@@ -29,7 +29,8 @@ const ingestSchema = z.object({
     maxDiscountCap: z.number(),
     minMarginFloor: z.number(),
     controlGroupRatio: z.number(),
-    minClassifierConfidence: z.number().default(0.8)
+    minClassifierConfidence: z.number().default(0.8),
+    tauApprove: z.number().default(5000)
   }).optional()
 });
 
@@ -75,7 +76,8 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       maxDiscountCap: 0.15,
       minMarginFloor: 0.10,
       controlGroupRatio: 0.10,
-      minClassifierConfidence: 0.8
+      minClassifierConfidence: 0.8,
+      tauApprove: 5000
     };
 
     // Cohort key (device:failureReason:paymentMethod)
@@ -181,6 +183,45 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       const tournamentResult = runInterventionTournament(ctxInput, cohortStatsMap);
       const winner = tournamentResult.winner;
 
+      // Step 4.5: Approval Gate (P1)
+      if (winner.eni > merchantConfig.tauApprove) {
+        // High-ENI decision requires human approval
+        let finalStatus: typeof incidents.$inferInsert.status = 'PENDING_APPROVAL';
+        let eventTypeStr = 'HIGH_ENI_REQUIRES_APPROVAL';
+        
+        await tx.insert(incidents).values({
+          id: incidentId,
+          merchantId: data.merchantId,
+          razorpayEventId: data.razorpayEventId,
+          checkoutId: data.checkoutId,
+          customerPhone: data.customerPhone,
+          orderValue: data.orderValue,
+          failureReason: failureReason as any,
+          device: data.device,
+          paymentMethod: data.paymentMethod,
+          affectedCohort: cohortKey,
+          isControl: false,
+          winningAction: winner.type as any,
+          winningENI: winner.eni,
+          winningPRec: winner.pRecovery,
+          discountOffered: winner.discountAmount || 0,
+          candidatesJson: JSON.stringify(tournamentResult),
+          rejectionReason: tournamentResult.rejectionExplanation || null,
+          razorpayLinkId: null,
+          razorpayLinkUrl: null,
+          status: finalStatus,
+          updatedAt: new Date()
+        });
+
+        await commitAuditBlockAtomic(tx, {
+          incidentId,
+          eventType: eventTypeStr,
+          eniScore: winner.eni
+        });
+
+        return; // Early return from tx, skip the rest
+      }
+
       // Step 5: Policy Gate
       // runInterventionTournament already applies margin floor, but we add defense in depth
       let finalStatus: typeof incidents.$inferInsert.status = 'EXECUTING';
@@ -188,8 +229,6 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       
       const grossProfit = data.orderValue * merchantConfig.grossMarginRatio;
       const postDiscountMargin = (grossProfit - (winner.discountAmount || 0)) / data.orderValue;
-      
-      console.log('DEBUG 10.F:', { winnerAction: winner.type, discountAmount: winner.discountAmount, grossProfit, postDiscountMargin, minMarginFloor: merchantConfig.minMarginFloor });
       
       if (postDiscountMargin < merchantConfig.minMarginFloor) {
         finalStatus = 'BLOCKED_INSUFFICIENT_MARGIN';
@@ -233,8 +272,8 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
           finalStatus = 'EXECUTED_PENDING_SETTLEMENT';
         } catch (e: any) {
           console.error('Razorpay link creation failed:', e);
-          // Don't mark as executed
-          throw e; // Rolls back transaction
+          finalStatus = 'RAZORPAY_LINK_FAILED';
+          eventTypeStr = 'EXECUTION_FAILED';
         }
       } else if (finalStatus === 'EXECUTING' && winner.type === 'DO_NOTHING') {
          finalStatus = 'PENDING';

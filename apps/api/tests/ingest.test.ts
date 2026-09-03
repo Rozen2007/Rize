@@ -151,10 +151,11 @@ describe('POST /internal/ingest', () => {
     const payload = { merchantId: 'm1', orderValue: 1000, errorCode: 'HIGH_PRICE', errorDesc: 'desc', device: 'mobile', paymentMethod: 'upi', customerPhone: '999', checkoutId: 'chk1', razorpayEventId: 'ev1', mockMerchantConfig: { controlGroupRatio: 0.0, grossMarginRatio: 0.40, mdrRate: 0.02, maxDiscountCap: 0.15, minMarginFloor: 0.10, minClassifierConfidence: 0.8 } };
     
     const res = await request(app).post('/internal/ingest').set('x-internal-key', validKey).send(payload);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     
     const dbIncidents = await db.select().from(incidents);
-    expect(dbIncidents.length).toBe(0); // Rollback
+    expect(dbIncidents.length).toBe(1); // Persisted despite failure
+    expect(dbIncidents[0]!.status).toBe('RAZORPAY_LINK_FAILED');
   });
   
   it('10.G: DO_NOTHING winner -> no link created, incident persists', async () => {

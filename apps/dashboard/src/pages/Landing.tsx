@@ -18,8 +18,6 @@ interface MetricsData {
   estimated_incremental_gmv: number;
 }
 
-const cohorts = ['desktop:PRICE_FRICTION:card', 'mobile:PRICE_FRICTION:upi'];
-
 export default function Landing() {
   const [hoveredSegment, setHoveredSegment] = useState<number | null>(null);
   const [data, setData] = useState<Record<string, MetricsData>>({});
@@ -27,8 +25,13 @@ export default function Landing() {
   useEffect(() => {
     const fetchAllMetrics = async () => {
       try {
+        const cohortRes = await fetch('/api/metrics/cohorts');
+        if (!cohortRes.ok) return;
+        const cohortJson = await cohortRes.json();
+        const availableCohorts: string[] = cohortJson.cohorts || [];
+
         const results: Record<string, MetricsData> = {};
-        for (const cohort of cohorts) {
+        for (const cohort of availableCohorts) {
           const res = await fetch(`/api/metrics?cohortKey=${cohort}`);
           if (!res.ok) continue;
           const json = await res.json();

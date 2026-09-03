@@ -8,7 +8,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "rm -f tests/*.js && vitest run"
+    "test": "rm -f tests/*.js && vitest run",
+    "brier": "tsx scripts/brier.ts"
   },
   "dependencies": {
     "@rize/ai": "workspace:*",

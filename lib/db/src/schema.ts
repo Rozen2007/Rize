@@ -16,7 +16,8 @@ export const failureReasonEnum = pgEnum('failure_reason', [
 export const incidentStatusEnum = pgEnum('incident_status', [
   'PENDING', 'EXECUTING', 'EXECUTED_PENDING_SETTLEMENT',
   'BLOCKED_INSUFFICIENT_MARGIN', 'RECOVERED', 'EXPIRED',
-  'SKIPPED_MISSING_CONTACT', 'CONTROL_HELDOUT',
+  'SKIPPED_MISSING_CONTACT', 'CONTROL_HELDOUT', 'RAZORPAY_LINK_FAILED',
+  'PENDING_APPROVAL', 'REJECTED_BY_APPROVER'
 ]);
 
 export const merchants = pgTable('merchants', {
@@ -28,6 +29,7 @@ export const merchants = pgTable('merchants', {
   maxDiscountCap: doublePrecision('max_discount_cap').default(0.15).notNull(),
   minMarginFloor: doublePrecision('min_margin_floor').default(0.10).notNull(),
   controlGroupRatio: doublePrecision('control_group_ratio').default(0.10).notNull(), // 10% holdout
+  tauApprove: doublePrecision('tau_approve').default(5000).notNull(), // ENI threshold for approval
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

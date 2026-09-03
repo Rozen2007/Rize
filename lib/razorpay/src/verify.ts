@@ -21,11 +21,15 @@ export function verifyWebhookSignature(
       .update(rawBody)
       .digest('hex');
 
+    const expectedBuf = Buffer.from(expectedSignature);
+    const providedBuf = Buffer.from(signature);
+
+    if (expectedBuf.length !== providedBuf.length) {
+      return false;
+    }
+
     // Prevent timing attacks
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature),
-      Buffer.from(signature)
-    );
+    return crypto.timingSafeEqual(expectedBuf, providedBuf);
   } catch (error) {
     return false;
   }

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { MetricCard } from '../components/MetricCard';
 import { CohortComparison } from '../components/CohortComparison';
 import { IncidentFeed } from '../components/IncidentFeed';
+import { ApprovalQueue } from '../components/ApprovalQueue';
+import { CalibrationChart } from '../components/CalibrationChart';
 import '../index.css';
 
 interface MetricsData {
@@ -20,9 +22,8 @@ interface MetricsData {
   estimated_incremental_gmv: number;
 }
 
-const cohorts = ['desktop:PRICE_FRICTION:card', 'mobile:PRICE_FRICTION:upi'];
-
-function Dashboard() {
+export default function Dashboard() {
+  const [cohorts, setCohorts] = useState<string[]>([]);
   const [data, setData] = useState<Record<string, MetricsData>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +31,14 @@ function Dashboard() {
   useEffect(() => {
     const fetchAllMetrics = async () => {
       try {
+        const cohortRes = await fetch('/api/metrics/cohorts');
+        if (!cohortRes.ok) throw new Error('Failed to fetch cohorts list');
+        const cohortJson = await cohortRes.json();
+        const availableCohorts: string[] = cohortJson.cohorts || [];
+        setCohorts(availableCohorts);
+
         const results: Record<string, MetricsData> = {};
-        for (const cohort of cohorts) {
+        for (const cohort of availableCohorts) {
           const res = await fetch(`/api/metrics?cohortKey=${cohort}`);
           if (!res.ok) throw new Error(`Failed to fetch ${cohort}`);
           const json = await res.json();
@@ -151,6 +158,11 @@ function Dashboard() {
             subtitle="Incidents resolved today"
             gradient="primary"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 mb-16">
+          <CalibrationChart />
+          <ApprovalQueue />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>

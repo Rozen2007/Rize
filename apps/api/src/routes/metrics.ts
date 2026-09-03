@@ -1,8 +1,24 @@
 import { Router, type Request, type Response } from 'express';
 import { db, incidents } from '@rize/db';
-import { eq, and, count, sql } from 'drizzle-orm';
+import { eq, and, count, sql, inArray } from 'drizzle-orm';
 
 export const metricsRouter: Router = Router();
+
+metricsRouter.get('/cohorts', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const merchantId = 'test';
+    const distinctCohorts = await db
+      .selectDistinct({ cohortKey: incidents.affectedCohort })
+      .from(incidents)
+      .where(eq(incidents.merchantId, merchantId));
+
+    const cohorts = distinctCohorts.map(c => c.cohortKey).filter(Boolean);
+    return res.status(200).json({ cohorts });
+  } catch (error: any) {
+    console.error('Cohorts error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
 
 metricsRouter.get('/', async (req: Request, res: Response): Promise<any> => {
   try {
@@ -99,6 +115,76 @@ metricsRouter.get('/', async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error: any) {
     console.error('Metrics error:', error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+metricsRouter.get('/calibration', async (req: Request, res: Response): Promise<any> => {
+  try {
+    // Run brier score calculation inline
+    const allIncidents = await db
+      .select()
+      .from(incidents)
+      .where(
+        inArray(incidents.status, ['RECOVERED', 'EXPIRED'])
+      );
+
+    if (allIncidents.length < 10) {
+      return res.status(200).json({
+        brierScore: null,
+        message: 'Need at least 10 incidents for calibration',
+        available: allIncidents.length
+      });
+    }
+
+    // Sort by predicted P_rec for decile visualization
+    const sorted = [...allIncidents].sort((a, b) => a.winningPRec - b.winningPRec);
+
+    // STEP 1: Calculate TRUE BRIER SCORE (per-incident)
+    let totalSquaredError = 0;
+    for (const incident of allIncidents) {
+      const predicted = incident.winningPRec;
+      const actual = incident.status === 'RECOVERED' ? 1 : 0;
+      const squaredError = Math.pow(predicted - actual, 2);
+      totalSquaredError += squaredError;
+    }
+    const brierScore = Number((totalSquaredError / allIncidents.length).toFixed(4));
+
+    // STEP 2: Create decile buckets for visualization (separate from Brier)
+    const decileSize = Math.ceil(sorted.length / 10);
+    const buckets = [];
+
+    for (let d = 0; d < 10; d++) {
+      const start = d * decileSize;
+      const end = Math.min(start + decileSize, sorted.length);
+      
+      if (start >= sorted.length) break;
+
+      const decileIncidents = sorted.slice(start, end);
+      const predictedP = decileIncidents.reduce((sum, inc) => sum + inc.winningPRec, 0) / decileIncidents.length;
+      const recovered = decileIncidents.filter(inc => inc.status === 'RECOVERED').length;
+      const actualRate = recovered / decileIncidents.length;
+      
+      buckets.push({
+        decile: d + 1,
+        predictedP: Number(predictedP.toFixed(2)),
+        actualRate: Number(actualRate.toFixed(2)),
+        count: decileIncidents.length
+      });
+    }
+
+    return res.status(200).json({
+      brierScore,  // THIS IS NOW THE CORRECT PER-INCIDENT BRIER SCORE
+      calibrationBuckets: buckets,
+      totalIncidents: allIncidents.length,
+      interpretation: brierScore < 0.15 
+        ? '✅ Well calibrated (Bayesian learner matches reality)'
+        : brierScore < 0.25 
+          ? '🟡 Moderately calibrated'
+          : '⚠️ Poorly calibrated (needs more data)'
+    });
+  } catch (error: any) {
+    console.error('Calibration error:', error);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
