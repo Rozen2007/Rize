@@ -1,231 +1,79 @@
-import { calculateEmpiricalPRec, type CohortStats, type BayesianParams } from './bayesian.js';
-import { calculateENI, type ENIParams } from './eni.js';
+import { calculateEmpiricalPRec } from './bayesian.js';
 
-export type ActionType = 'DO_NOTHING' | 'PAYMENT_RECOVERY_LINK' | 'TARGETED_DYNAMIC_DISCOUNT';
+export type ActionType = 'PAYMENT_RECOVERY_LINK' | 'TARGETED_DYNAMIC_DISCOUNT' | 'DO_NOTHING';
+export type FailureReason = 'PRICE_FRICTION' | 'BANK_DECLINE' | 'AUTH_TIMEOUT' | 'EXPIRED_CARD';
 
-export interface Candidate {
-  action: ActionType;
-  eligible: boolean;
-  pRec: number;
-  discountAmount: number;
-  eni: number;
-  rejectionReason?: string;
-}
-
-export interface TournamentContext {
-  failureReason: string;       // PRICE_FRICTION, BANK_DECLINE, etc.
-  classifierConfidence: number; // AI confidence (0.0 to 1.0)
+export interface ContextInput {
   orderValue: number;
-  device: string;              // mobile, desktop
-  paymentMethod: string;       // card, upi
+  failureReason: FailureReason;
   grossMarginRatio: number;
   mdrRate: number;
-  msgCost: number;
-  minClassifierConfidence: number; // Gate: e.g., 0.80
-  minMarginFloor: number;      // Post-discount margin floor
-  discountCap: number;         // Max discount amount
-  maxDiscountPercentage: number; // Max discount as % of order
+  maxDiscountCap: number;
+  minMarginFloor: number;
+  
+  // Extra fields for compatibility with existing tests/ingest (will be ignored or mapped)
+  device?: string;
+  paymentMethod?: string;
+  classifierConfidence?: number;
+  minClassifierConfidence?: number;
+  msgCost?: number;
+  discountCap?: number;
+  maxDiscountPercentage?: number;
 }
 
-export interface CohortStatMap {
-  [cohortKey: string]: CohortStats;
+export interface Candidate {
+  type: ActionType;
+  pRecovery: number;
+  discountAmount: number;
+  msgCost: number;
+  eni: number;
+  eligible: boolean;
+  note: string;
 }
 
 export interface TournamentResult {
   winner: Candidate;
   candidates: Candidate[];
-  winningENI: number;
-  winningPRec: number;
+  rejectionExplanation: string;
 }
 
-/**
- * Determine if a discount is eligible for this failure reason
- *
- * Only PRICE_FRICTION can get a discount.
- * BANK_DECLINE, AUTH_TIMEOUT, EXPIRED_CARD → DO_NOTHING only
- */
-function isDiscountEligibleByFailureReason(failureReason: string): boolean {
-  return failureReason === 'PRICE_FRICTION';
-}
-
-/**
- * Determine if classifier confidence is sufficient
- */
-function isClassifierConfidenceAcceptable(
-  confidence: number,
-  threshold: number
-): boolean {
-  return confidence >= threshold;
-}
-
-/**
- * Calculate max discount capped by policy and order value
- */
-function calculateMaxDiscount(
-  orderValue: number,
-  discountCap: number,
-  maxDiscountPercentage: number
-): number {
-  const percentageBasedCap = orderValue * maxDiscountPercentage;
-  return Math.min(discountCap, percentageBasedCap);
-}
-
-/**
- * Verify that post-discount margin meets floor requirement
- */
-function meetsMarginFloor(
-  orderValue: number,
-  discount: number,
-  grossMarginRatio: number,
-  mdrRate: number,
-  minMarginFloor: number
-): boolean {
-  const grossProfit = orderValue * grossMarginRatio;
-  const mdrCost = orderValue * mdrRate;
-  const postDiscountMargin = (grossProfit - discount - mdrCost) / orderValue;
-  return postDiscountMargin >= minMarginFloor;
-}
-
-/**
- * runInterventionTournament
- *
- * This is the main decision engine. It evaluates three candidates:
- * 1. DO_NOTHING (always eligible)
- * 2. PAYMENT_RECOVERY_LINK (if discount is ineligible)
- * 3. TARGETED_DYNAMIC_DISCOUNT (if discount is eligible AND confident)
- *
- * Returns the candidate with highest ENI.
- */
 export function runInterventionTournament(
-  context: TournamentContext,
-  cohortStatMap?: CohortStatMap
+  ctx: ContextInput,
+  cohortStatsMap?: Record<string, { totalAttempts: number; totalSuccesses: number }>
 ): TournamentResult {
+  // Support either maxDiscountCap or maxDiscountPercentage for compatibility
+  const discountCapPct = ctx.maxDiscountCap ?? ctx.maxDiscountPercentage ?? 0.15;
+  
+  const grossProfit = ctx.orderValue * ctx.grossMarginRatio;
+  const mdrCost = ctx.orderValue * ctx.mdrRate;
+  const DO_NOTHING: Candidate = { type: 'DO_NOTHING', pRecovery: 0, discountAmount: 0, msgCost: 0, eni: 0, eligible: true, note: 'Safe floor' };
+
+  if (ctx.grossMarginRatio < ctx.minMarginFloor) {
+    return { winner: DO_NOTHING, candidates: [DO_NOTHING],
+      rejectionExplanation: `Gross margin ${(ctx.grossMarginRatio*100).toFixed(1)}% below floor ${(ctx.minMarginFloor*100).toFixed(1)}% — all interventions blocked.` };
+  }
+
   const candidates: Candidate[] = [];
 
-  // Build cohort key: device:failureReason:paymentMethod
-  const cohortKey = `${context.device}:${context.failureReason}:${context.paymentMethod}`;
-  const cohortStats = cohortStatMap?.[cohortKey];
+  const pLink = calculateEmpiricalPRec('PAYMENT_RECOVERY_LINK', ctx.failureReason, cohortStatsMap?.['PAYMENT_RECOVERY_LINK']);
+  candidates.push({ type: 'PAYMENT_RECOVERY_LINK', pRecovery: pLink, discountAmount: 0, msgCost: 1.5,
+    eni: pLink * (grossProfit - mdrCost) - 1.5, eligible: true, note: 'Retry link, no margin cost' });
 
-  // --- CANDIDATE 1: DO_NOTHING (always eligible) ---
-  const doNothingCandidate: Candidate = {
-    action: 'DO_NOTHING',
-    eligible: true,
-    pRec: 0, // No recovery expected
-    discountAmount: 0,
-    eni: 0,
-    rejectionReason: undefined,
-  };
-  candidates.push(doNothingCandidate);
+  // Discount eligible ONLY for PRICE_FRICTION (Blocker #4)
+  const discountEligible = ctx.failureReason === 'PRICE_FRICTION';
+  const discount = Math.min(ctx.orderValue * discountCapPct, grossProfit * 0.40);
+  const pDisc = discountEligible ? calculateEmpiricalPRec('TARGETED_DYNAMIC_DISCOUNT', ctx.failureReason, cohortStatsMap?.['TARGETED_DYNAMIC_DISCOUNT']) : 0;
+  candidates.push({ type: 'TARGETED_DYNAMIC_DISCOUNT', pRecovery: pDisc, discountAmount: discount, msgCost: 2.0,
+    eni: discountEligible ? pDisc * (grossProfit - discount - mdrCost) - 2.0 : Number.NEGATIVE_INFINITY,
+    eligible: discountEligible, note: discountEligible ? 'Price-driven failure' : 'Ineligible: technical failure, discount cannot fix cause' });
 
-  // --- CANDIDATE 2 & 3: Check discount eligibility ---
-  const discountEligible =
-    isDiscountEligibleByFailureReason(context.failureReason) &&
-    isClassifierConfidenceAcceptable(
-      context.classifierConfidence,
-      context.minClassifierConfidence
-    );
+  candidates.push(DO_NOTHING);
 
-  if (!discountEligible) {
-    const recoveryPRec = 0.15;
-    const recoveryEni = calculateENI({
-      orderValue: context.orderValue,
-      pRec: recoveryPRec,
-      discountAmount: 0,
-      mdrRate: context.mdrRate,
-      msgCost: context.msgCost,
-      grossMarginRatio: context.grossMarginRatio,
-    });
-
-    const recoveryLinkCandidate: Candidate = {
-      action: 'PAYMENT_RECOVERY_LINK',
-      eligible: true,
-      pRec: recoveryPRec,
-      discountAmount: 0,
-      eni: recoveryEni,
-      rejectionReason:
-        context.failureReason !== 'PRICE_FRICTION'
-          ? `Cannot discount ${context.failureReason}`
-          : `Classifier confidence too low (${context.classifierConfidence.toFixed(
-              2
-            )} < ${context.minClassifierConfidence})`,
-    };
-    candidates.push(recoveryLinkCandidate);
-
-    // Return best candidate
-    const winner =
-      recoveryLinkCandidate.eni > doNothingCandidate.eni
-        ? recoveryLinkCandidate
-        : doNothingCandidate;
-
-    return {
-      winner,
-      candidates,
-      winningENI: winner.eni,
-      winningPRec: winner.pRec,
-    };
-  }
-
-  // --- DISCOUNT IS ELIGIBLE ---
-
-  // Calculate max discount
-  const maxDiscount = calculateMaxDiscount(
-    context.orderValue,
-    context.discountCap,
-    context.maxDiscountPercentage
-  );
-
-  // Calculate P_rec for this cohort
-  const pRec = calculateEmpiricalPRec({
-    priorPRec: 0.72, // Default prior for PRICE_FRICTION
-    N: 10,
-    cohortStats,
-  });
-
-  // Calculate ENI with discount
-  const eni = calculateENI({
-    orderValue: context.orderValue,
-    pRec,
-    discountAmount: maxDiscount,
-    mdrRate: context.mdrRate,
-    msgCost: context.msgCost,
-    grossMarginRatio: context.grossMarginRatio,
-  });
-
-  // Check margin floor
-  const passesMarginFloor = meetsMarginFloor(
-    context.orderValue,
-    maxDiscount,
-    context.grossMarginRatio,
-    context.mdrRate,
-    context.minMarginFloor
-  );
-
-  const discountCandidate: Candidate = {
-    action: 'TARGETED_DYNAMIC_DISCOUNT',
-    eligible: eni > 0 && passesMarginFloor,
-    pRec,
-    discountAmount: maxDiscount,
-    eni: eni > 0 && passesMarginFloor ? eni : 0,
-    rejectionReason: !passesMarginFloor
-      ? 'Post-discount margin below floor'
-      : eni <= 0
-      ? 'Negative ENI'
-      : undefined,
-  };
-  candidates.push(discountCandidate);
-
-  // --- TOURNAMENT: SELECT WINNER ---
-  let winner = doNothingCandidate;
-  for (const candidate of candidates) {
-    if (candidate.eligible && candidate.eni > winner.eni) {
-      winner = candidate;
-    }
-  }
-
-  return {
-    winner,
-    candidates,
-    winningENI: winner.eni,
-    winningPRec: winner.pRec,
-  };
+  const ranked = [...candidates].sort((a, b) => b.eni - a.eni);
+  const winner = ranked[0];
+  const runnerUp = ranked.find(c => c.type !== winner.type)!;
+  const rejectionExplanation = winner.type === 'DO_NOTHING'
+    ? 'All eligible interventions had non-positive expected net profit.'
+    : `Selected ${winner.type} (ENI ₹${winner.eni.toFixed(2)}, P_rec ${(winner.pRecovery*100).toFixed(0)}%) over ${runnerUp.type} (ENI ${runnerUp.eni===Number.NEGATIVE_INFINITY?'ineligible':'₹'+runnerUp.eni.toFixed(2)}).`;
+  return { winner, candidates, rejectionExplanation };
 }

@@ -26,8 +26,8 @@ async function seed() {
   console.log('Generating 60 incidents...');
   
   // Clean up old synthetic data
-  await db.delete(cohortStats).where(undefined as any).catch(() => {}); // clean all
-  await db.delete(incidents).where(undefined as any).catch(() => {});
+  await db.delete(cohortStats).catch(() => {}); // clean all
+  await db.delete(incidents).catch(() => {});
   
   const incidentData: any[] = [];
   let idCounter = 1;
@@ -42,23 +42,32 @@ async function seed() {
       status = i % 3 !== 0 ? 'RECOVERED' : 'EXPIRED'; // ~66% recovery for treatment
     }
     
-    incidentData.push({
-      id: `inc_pf_${idCounter++}`,
-      merchantId: 'test',
-      razorpayEventId: `event_pf_${idCounter}`,
-      checkoutId: `checkout_pf_${idCounter}`,
-      failureReason: 'PRICE_FRICTION',
-      device: i < 14 ? 'mobile' : 'desktop',
-      paymentMethod: i % 2 === 0 ? 'card' : 'upi',
-      affectedCohort: `${i < 14 ? 'mobile' : 'desktop'}:PRICE_FRICTION:${i % 2 === 0 ? 'card' : 'upi'}`,
-      orderValue: Math.floor(Math.random() * 5000) + 500,
-      isControl,
-      winningAction: 'TARGETED_DYNAMIC_DISCOUNT',
-      winningENI: 50.0,
-      winningPRec: 0.72,
-      candidatesJson: '{}',
-      status,
-    });
+      const discountOffered = Math.floor(Math.random() * 10) + 5; // 5% to 14%
+      const candidatesJson = JSON.stringify([
+        { action: 'TARGETED_DYNAMIC_DISCOUNT', discountOffered: discountOffered / 100, eni: 50.0, pRec: 0.72 },
+        { action: 'TARGETED_DYNAMIC_DISCOUNT', discountOffered: (discountOffered + 5) / 100, eni: 45.0, pRec: 0.85 },
+        { action: 'PAYMENT_RECOVERY_LINK', discountOffered: 0, eni: 20.0, pRec: 0.40 }
+      ]);
+      const orderVal = Math.floor(Math.random() * 5000) + 500;
+      
+      incidentData.push({
+        id: `inc_pf_${idCounter++}`,
+        merchantId: 'test',
+        razorpayEventId: `event_pf_${idCounter}`,
+        checkoutId: `checkout_pf_${idCounter}`,
+        failureReason: 'PRICE_FRICTION',
+        device: i < 14 ? 'mobile' : 'desktop',
+        paymentMethod: i % 2 === 0 ? 'card' : 'upi',
+        affectedCohort: `${i < 14 ? 'mobile' : 'desktop'}:PRICE_FRICTION:${i % 2 === 0 ? 'card' : 'upi'}`,
+        orderValue: orderVal,
+        isControl,
+        winningAction: 'TARGETED_DYNAMIC_DISCOUNT',
+        winningENI: orderVal * 0.4 * (1 - (discountOffered/100)), // dynamic ENI
+        winningPRec: 0.72 + (Math.random() * 0.2), // 72% to 92%
+        discountOffered: discountOffered / 100,
+        candidatesJson,
+        status,
+      });
   }
 
   // AUTH_TIMEOUT: 18 incidents, 45% success (8 recovered)

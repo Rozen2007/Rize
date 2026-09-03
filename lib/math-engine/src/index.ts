@@ -12,8 +12,7 @@ export {
 
 export {
   runInterventionTournament,
-  type TournamentContext,
-  type CohortStatMap,
+  type ContextInput as TournamentContext,
   type Candidate,
   type TournamentResult,
   type ActionType,

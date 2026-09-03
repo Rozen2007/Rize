@@ -172,7 +172,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
         classifierConfidence,
         grossMarginRatio: merchantConfig.grossMarginRatio,
         mdrRate: merchantConfig.mdrRate,
-        discountCap: merchantConfig.maxDiscountCap,
+        maxDiscountCap: merchantConfig.maxDiscountCap,
         maxDiscountPercentage: 0.5,
         minMarginFloor: merchantConfig.minMarginFloor,
         minClassifierConfidence: merchantConfig.minClassifierConfidence
@@ -189,12 +189,12 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       const grossProfit = data.orderValue * merchantConfig.grossMarginRatio;
       const postDiscountMargin = (grossProfit - (winner.discountAmount || 0)) / data.orderValue;
       
-      console.log('DEBUG 10.F:', { winnerAction: winner.action, discountAmount: winner.discountAmount, grossProfit, postDiscountMargin, minMarginFloor: merchantConfig.minMarginFloor });
+      console.log('DEBUG 10.F:', { winnerAction: winner.type, discountAmount: winner.discountAmount, grossProfit, postDiscountMargin, minMarginFloor: merchantConfig.minMarginFloor });
       
       if (postDiscountMargin < merchantConfig.minMarginFloor) {
         finalStatus = 'BLOCKED_INSUFFICIENT_MARGIN';
         eventTypeStr = 'ACTION_BLOCKED_POLICY';
-      } else if (winner.action === 'DO_NOTHING') {
+      } else if (winner.type === 'DO_NOTHING') {
         finalStatus = 'PENDING'; // Or a specific DO_NOTHING state if defined, usually we just leave it or mark a terminal state, let's use EXPIRED or PENDING
         eventTypeStr = 'DO_NOTHING_CHOSEN';
       }
@@ -203,9 +203,9 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       let razorpayLinkId: string | null = null;
       let razorpayLinkUrl: string | null = null;
 
-      if (finalStatus === 'EXECUTING' && winner.action !== 'DO_NOTHING') {
+      if (finalStatus === 'EXECUTING' && winner.type !== 'DO_NOTHING') {
         // AI Copy Generation
-        const copyMsg = await generateCopyWithTimeout(winner.action, data.orderValue - (winner.discountAmount || 0));
+        const copyMsg = await generateCopyWithTimeout(winner.type, data.orderValue - (winner.discountAmount || 0));
         
         try {
           const linkResult = await createRazorpayLink(
@@ -236,7 +236,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
           // Don't mark as executed
           throw e; // Rolls back transaction
         }
-      } else if (finalStatus === 'EXECUTING' && winner.action === 'DO_NOTHING') {
+      } else if (finalStatus === 'EXECUTING' && winner.type === 'DO_NOTHING') {
          finalStatus = 'PENDING';
       }
 
@@ -253,12 +253,12 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
         paymentMethod: data.paymentMethod,
         affectedCohort: cohortKey,
         isControl: false,
-        winningAction: winner.action as any,
+        winningAction: winner.type as any,
         winningENI: winner.eni,
-        winningPRec: winner.pRec,
+        winningPRec: winner.pRecovery,
         discountOffered: winner.discountAmount || 0,
         candidatesJson: JSON.stringify(tournamentResult),
-        rejectionReason: winner.rejectionReason || null,
+        rejectionReason: tournamentResult.rejectionExplanation || null,
         razorpayLinkId,
         razorpayLinkUrl,
         status: finalStatus,

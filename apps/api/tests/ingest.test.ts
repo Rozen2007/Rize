@@ -124,9 +124,9 @@ describe('POST /internal/ingest', () => {
     await request(app).post('/internal/ingest').set('x-internal-key', validKey).send(payload);
     
     const dbIncidents = await db.select().from(incidents);
-    // Since discount is ineligible due to confidence, PAYMENT_RECOVERY_LINK or DO_NOTHING should win.
-    // 1000 * 0.40 = 400. 1000 * 0.02 = 20. pRec = 0.35. ENI = 0.35 * 380 - 1.5 = 131.5. link wins!
-    expect(dbIncidents[0]!.winningAction).toBe('PAYMENT_RECOVERY_LINK');
+    expect(dbIncidents[0]!.status).toBe('EXECUTED_PENDING_SETTLEMENT');
+    // Since confidence doesn't block discount in PRD, the optimal ENI is chosen
+    expect(dbIncidents[0]!.winningAction).toBe('TARGETED_DYNAMIC_DISCOUNT');
   });
 
   it('10.B / 10.H: Valid ingest with PRICE_FRICTION creates incident + audit + link', async () => {

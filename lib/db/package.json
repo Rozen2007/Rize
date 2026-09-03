@@ -10,7 +10,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "drizzle-orm": "^0.29.3",
+    "drizzle-orm": "^0.29.5",
     "pg": "^8.11.3"
   },
   "devDependencies": {

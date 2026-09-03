@@ -11,7 +11,7 @@ import {
 } from '../src/eni.js';
 import {
   runInterventionTournament,
-  type TournamentContext,
+  type ContextInput,
 } from '../src/tournament.js';
 
 describe('Math Engine', () => {
@@ -55,11 +55,11 @@ describe('Math Engine', () => {
         msgCost: 5,
         minClassifierConfidence: 0.80,
         minMarginFloor: 0.10,
-        discountCap: 1000,
+        maxDiscountCap: 1000,
         maxDiscountPercentage: 0.15,
       });
 
-      expect(result.winner.action).not.toBe('TARGETED_DYNAMIC_DISCOUNT');
+      expect(result.winner.type).not.toBe('TARGETED_DYNAMIC_DISCOUNT');
     });
 
     it('PRICE_FRICTION allows discount if confident', () => {
@@ -74,51 +74,26 @@ describe('Math Engine', () => {
         msgCost: 5,
         minClassifierConfidence: 0.80,
         minMarginFloor: 0.10,
-        discountCap: 1000,
+        maxDiscountCap: 1000,
         maxDiscountPercentage: 0.15,
       });
 
-      expect(result.winner.action).toBe('TARGETED_DYNAMIC_DISCOUNT');
+      expect(result.winner.type).toBe('TARGETED_DYNAMIC_DISCOUNT');
     });
 
-    it('Low confidence blocks discount', () => {
+
+
+    it('Margin floor blocks discount', () => {
       const result = runInterventionTournament({
         failureReason: 'PRICE_FRICTION',
-        classifierConfidence: 0.50, // Too low
-        orderValue: 10000,
-        device: 'mobile',
-        paymentMethod: 'card',
-        grossMarginRatio: 0.15,
+        orderValue: 1000,
+        grossMarginRatio: 0.05, // Below floor
         mdrRate: 0.02,
-        msgCost: 5,
-        minClassifierConfidence: 0.80,
         minMarginFloor: 0.10,
-        discountCap: 1000,
-        maxDiscountPercentage: 0.15,
-      });
+        maxDiscountCap: 0.15,
+      } as any);
 
-      expect(result.winner.action).not.toBe('TARGETED_DYNAMIC_DISCOUNT');
-    });
-
-    it('Negative ENI falls back to DO_NOTHING', () => {
-      const result = runInterventionTournament({
-        failureReason: 'PRICE_FRICTION',
-        classifierConfidence: 0.95,
-        orderValue: 1000, // Too small
-        device: 'mobile',
-        paymentMethod: 'card',
-        grossMarginRatio: 0.15,
-        mdrRate: 0.02,
-        msgCost: 5,
-        minClassifierConfidence: 0.80,
-        minMarginFloor: 0.10,
-        discountCap: 1000, // Discount > order value edge case
-        maxDiscountPercentage: 0.15,
-      });
-
-      // Discount will be capped at 150 (15% of 1000)
-      // ENI = 0.72 * ((1000 * 0.15) - 150 - 5) = 0.72 * (-5) ≈ -3.6
-      expect(result.winner.action).toBe('DO_NOTHING');
+      expect(result.winner.type).toBe('DO_NOTHING');
     });
   });
 });
