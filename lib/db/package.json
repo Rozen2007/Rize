@@ -1,0 +1,20 @@
+{
+  "name": "@rize/db",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "push": "drizzle-kit push",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.29.3",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "drizzle-kit": "^0.20.13",
+    "typescript": "^5.3.3"
+  }
+}

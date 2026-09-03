@@ -1,0 +1,22 @@
+{
+  "name": "rize-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "workspaces": [
+    "artifacts/*",
+    "lib/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "es5-ext"
+    ]
+  }
+}
