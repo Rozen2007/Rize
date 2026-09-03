@@ -11,7 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@rize/audit-ledger": "workspace:*",
     "@rize/db": "workspace:*",
+    "@rize/razorpay": "workspace:*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.29.5",
     "express": "^5.2.1",

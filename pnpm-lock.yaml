@@ -14,9 +14,15 @@ importers:
 
   apps/api:
     dependencies:
+      '@rize/audit-ledger':
+        specifier: workspace:*
+        version: link:../../lib/audit-ledger
       '@rize/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@rize/razorpay':
+        specifier: workspace:*
+        version: link:../../lib/razorpay
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
