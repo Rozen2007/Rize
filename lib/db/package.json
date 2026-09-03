@@ -4,8 +4,8 @@
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "generate": "drizzle-kit generate",
-    "push": "drizzle-kit push",
+    "generate": "drizzle-kit generate:pg",
+    "push": "drizzle-kit push:pg",
     "build": "tsc"
   },
   "dependencies": {

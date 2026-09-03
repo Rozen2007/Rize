@@ -1,0 +1,485 @@
+{
+  "id": "5e5e0349-0ef1-4173-be89-c873b0ab386d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "5",
+  "dialect": "pg",
+  "tables": {
+    "audit_ledger": {
+      "name": "audit_ledger",
+      "schema": "",
+      "columns": {
+        "sequence_id": {
+          "name": "sequence_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "incident_id": {
+          "name": "incident_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "eni_score": {
+          "name": "eni_score",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "previous_hash": {
+          "name": "previous_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_hash": {
+          "name": "current_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at_ms": {
+          "name": "created_at_ms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "audit_ledger_incident_id_incidents_id_fk": {
+          "name": "audit_ledger_incident_id_incidents_id_fk",
+          "tableFrom": "audit_ledger",
+          "tableTo": "incidents",
+          "columnsFrom": [
+            "incident_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "cohort_stats": {
+      "name": "cohort_stats",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "merchant_id": {
+          "name": "merchant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cohort_key": {
+          "name": "cohort_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "action_type",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_attempts": {
+          "name": "total_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_successes": {
+          "name": "total_successes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "cohort_stats_merchant_id_merchants_id_fk": {
+          "name": "cohort_stats_merchant_id_merchants_id_fk",
+          "tableFrom": "cohort_stats",
+          "tableTo": "merchants",
+          "columnsFrom": [
+            "merchant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "cohort_stats_merchant_id_cohort_key_action_type_unique": {
+          "name": "cohort_stats_merchant_id_cohort_key_action_type_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "merchant_id",
+            "cohort_key",
+            "action_type"
+          ]
+        }
+      }
+    },
+    "incidents": {
+      "name": "incidents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "merchant_id": {
+          "name": "merchant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "razorpay_event_id": {
+          "name": "razorpay_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checkout_id": {
+          "name": "checkout_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_phone": {
+          "name": "customer_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_value": {
+          "name": "order_value",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failure_reason": {
+          "name": "failure_reason",
+          "type": "failure_reason",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "device": {
+          "name": "device",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "affected_cohort": {
+          "name": "affected_cohort",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_control": {
+          "name": "is_control",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "winning_action": {
+          "name": "winning_action",
+          "type": "action_type",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winning_eni": {
+          "name": "winning_eni",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winning_prec": {
+          "name": "winning_prec",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discount_offered": {
+          "name": "discount_offered",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "candidates_json": {
+          "name": "candidates_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rejection_reason": {
+          "name": "rejection_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpay_link_id": {
+          "name": "razorpay_link_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpay_link_url": {
+          "name": "razorpay_link_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpay_payment_id": {
+          "name": "razorpay_payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "incident_status",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'PENDING'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "incidents_merchant_id_merchants_id_fk": {
+          "name": "incidents_merchant_id_merchants_id_fk",
+          "tableFrom": "incidents",
+          "tableTo": "merchants",
+          "columnsFrom": [
+            "merchant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "incidents_razorpay_event_id_unique": {
+          "name": "incidents_razorpay_event_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "razorpay_event_id"
+          ]
+        },
+        "incidents_razorpay_link_id_unique": {
+          "name": "incidents_razorpay_link_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "razorpay_link_id"
+          ]
+        },
+        "incidents_razorpay_payment_id_unique": {
+          "name": "incidents_razorpay_payment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "razorpay_payment_id"
+          ]
+        }
+      }
+    },
+    "merchants": {
+      "name": "merchants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "webhook_secret": {
+          "name": "webhook_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gross_margin_ratio": {
+          "name": "gross_margin_ratio",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.4
+        },
+        "mdr_rate": {
+          "name": "mdr_rate",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.02
+        },
+        "max_discount_cap": {
+          "name": "max_discount_cap",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.15
+        },
+        "min_margin_floor": {
+          "name": "min_margin_floor",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.1
+        },
+        "control_group_ratio": {
+          "name": "control_group_ratio",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0.1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "processed_webhook_events": {
+      "name": "processed_webhook_events",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    }
+  },
+  "enums": {
+    "action_type": {
+      "name": "action_type",
+      "values": {
+        "PAYMENT_RECOVERY_LINK": "PAYMENT_RECOVERY_LINK",
+        "TARGETED_DYNAMIC_DISCOUNT": "TARGETED_DYNAMIC_DISCOUNT",
+        "DO_NOTHING": "DO_NOTHING"
+      }
+    },
+    "failure_reason": {
+      "name": "failure_reason",
+      "values": {
+        "PRICE_FRICTION": "PRICE_FRICTION",
+        "BANK_DECLINE": "BANK_DECLINE",
+        "AUTH_TIMEOUT": "AUTH_TIMEOUT",
+        "EXPIRED_CARD": "EXPIRED_CARD"
+      }
+    },
+    "incident_status": {
+      "name": "incident_status",
+      "values": {
+        "PENDING": "PENDING",
+        "EXECUTING": "EXECUTING",
+        "EXECUTED_PENDING_SETTLEMENT": "EXECUTED_PENDING_SETTLEMENT",
+        "BLOCKED_INSUFFICIENT_MARGIN": "BLOCKED_INSUFFICIENT_MARGIN",
+        "RECOVERED": "RECOVERED",
+        "EXPIRED": "EXPIRED",
+        "SKIPPED_MISSING_CONTACT": "SKIPPED_MISSING_CONTACT",
+        "CONTROL_HELDOUT": "CONTROL_HELDOUT"
+      }
+    }
+  },
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
