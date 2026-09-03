@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { db, incidents, processedWebhookEvents } from '@rize/db';
 import { eq } from 'drizzle-orm';
 
-export const webhooksRouter = Router();
+export const webhooksRouter: Router = Router();
 
 // Mount with raw body parser to preserve exact bytes for HMAC validation
 webhooksRouter.post('/razorpay', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -28,12 +28,13 @@ webhooksRouter.post('/razorpay', express.raw({ type: 'application/json' }), asyn
       .digest('hex');
 
     // Constant-time comparison
-    const isSignatureValid = crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
+    const signatureBuffer = Buffer.from(signature, 'utf8');
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
 
-    if (!isSignatureValid) {
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+    ) {
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
@@ -57,12 +58,13 @@ webhooksRouter.post('/razorpay', express.raw({ type: 'application/json' }), asyn
         const linkId = payload.payload.payment_link.entity.id;
         
         // Find matching incident
-        const matchingIncident = await tx.select().from(incidents).where(eq(incidents.razorpayLinkId, linkId));
-        if (matchingIncident.length > 0) {
+        const matchingIncidentList = await tx.select().from(incidents).where(eq(incidents.razorpayLinkId, linkId));
+        const incident = matchingIncidentList[0];
+        if (incident) {
           // Flip incident to RECOVERED
           await tx.update(incidents)
             .set({ status: 'RECOVERED', updatedAt: new Date() })
-            .where(eq(incidents.id, matchingIncident[0].id));
+            .where(eq(incidents.id, incident.id));
         } else {
           console.log(`Webhook received for unassociated payment link: ${linkId}`);
         }
