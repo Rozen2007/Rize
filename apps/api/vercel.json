@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "installCommand": "cd ../.. && pnpm install --no-frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @rize/ai --filter @rize/db --filter @rize/math-engine --filter @rize/razorpay --filter @rize/audit-ledger build",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -7,3 +9,4 @@
     }
   ]
 }
+
