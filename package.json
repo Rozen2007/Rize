@@ -13,11 +13,5 @@
   "devDependencies": {
     "typescript": "^5.3.3"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "es5-ext"
-    ]
-  },
   "packageManager": "pnpm@11.25.0"
 }
