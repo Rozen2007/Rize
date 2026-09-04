@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = [
+  "npm install -g pnpm",
+  "cd ../.. && pnpm install --no-frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "cd ../.. && pnpm --filter @rize/ai --filter @rize/db --filter @rize/math-engine --filter @rize/razorpay --filter @rize/audit-ledger build",
+  "cd ../../apps/api && pnpm exec tsc"
+]
+
+[start]
+cmd = "node dist/index.js"
