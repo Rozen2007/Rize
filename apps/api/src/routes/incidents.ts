@@ -7,6 +7,15 @@ import { commitAuditBlockAtomic } from '@rize/audit-ledger';
 
 export const incidentsRouter: Router = Router();
 
+incidentsRouter.post('/fix-currency', (async (req: Request, res: Response) => {
+  try {
+    const allIncidents = await db.select().from(incidents).limit(5);
+    res.json({ success: true, data: allIncidents.map(i => ({ id: i.id, smsCopy: i.smsCopy, candidatesJson: i.candidatesJson })) });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fix currency' });
+  }
+}) as RequestHandler);
+
 incidentsRouter.get('/', (async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined;

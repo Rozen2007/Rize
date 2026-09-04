@@ -9,7 +9,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "openai": "^4.20.0"
+    "openai": "^4.104.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

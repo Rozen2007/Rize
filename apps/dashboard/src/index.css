@@ -1,14 +1,15 @@
 :root {
-  --bg-color: #050505;
-  --bg-accent: #0f0f11;
+  --bg-color: #0e0e0e;
+  --bg-accent: #161616;
   --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --primary-glow: rgba(138, 43, 226, 0.5);
-  --success-glow: rgba(0, 255, 127, 0.4);
+  --text-secondary: #888888;
+  --primary-glow: rgba(255, 255, 255, 0.1);
+  --success-glow: rgba(0, 255, 127, 0.2);
   
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-border-hover: rgba(255, 255, 255, 0.2);
+  --glass-bg: #111111;
+  --glass-border: #222222;
+  --glass-border-hover: #333333;
+
   
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -34,20 +35,18 @@ h1, h2, h3, h4 {
   letter-spacing: -0.02em;
 }
 
-/* Glassmorphism Panel */
+/* Minimalist Panel */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 24px;
   transition: all 0.3s ease;
 }
 
 .glass-panel:hover {
   border-color: var(--glass-border-hover);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* Animations */
@@ -86,15 +85,51 @@ h1, h2, h3, h4 {
 }
 
 .text-gradient-primary {
-  background: linear-gradient(135deg, #c471f5 0%, #fa71cd 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ffffff;
 }
 
 .text-gradient-success {
-  background: linear-gradient(135deg, #00FF7F 0%, #00CED1 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #4ade80;
+}
+
+/* Skiper UI style button animations */
+.skiper-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.skiper-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: currentColor;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: -1;
+  opacity: 0.1;
+}
+
+.skiper-btn:hover::after {
+  transform: translateY(0);
+}
+
+.skiper-btn:active {
+  transform: scale(0.95);
+}
+
+.skiper-btn-approve {
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+.skiper-btn-approve:hover {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+  border-color: rgba(34, 197, 94, 0.8) !important;
+}
+
+.skiper-btn-reject:hover {
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
 }

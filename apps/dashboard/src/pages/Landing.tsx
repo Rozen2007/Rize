@@ -409,7 +409,7 @@ export default function Landing() {
               <div key={i} style={{ display: 'flex', gap: '48px' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#888', fontSize: '14px' }}>
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 10px #10b981' }} />
-                  <span style={{ color: 'white', fontWeight: 600, fontFamily: 'monospace' }}>${totalGmv.toLocaleString()}</span> recovered today
+                  <span style={{ color: 'white', fontWeight: 600, fontFamily: 'monospace' }}>₹{totalGmv.toLocaleString()}</span> recovered today
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#888', fontSize: '14px' }}>
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 10px #10b981' }} />

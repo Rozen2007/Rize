@@ -141,7 +141,7 @@ export function IncidentFeed() {
                 fontWeight: '600',
                 border: '1px solid rgba(138, 43, 226, 0.3)'
               }}>
-                ${currentIncident.orderValue}
+                ₹{currentIncident.orderValue}
               </span>
             </div>
             <div style={{ display: 'flex', gap: '16px', color: '#9ca3af', fontSize: '0.875rem', alignItems: 'center' }}>

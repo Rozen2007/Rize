@@ -45,7 +45,10 @@ export function CalibrationChart() {
       borderRadius: '12px',
       overflow: 'hidden',
       boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.1)',
-      backdropFilter: 'blur(10px)'
+      backdropFilter: 'blur(10px)',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%'
     }}>
       <div style={{
         background: 'rgba(59, 130, 246, 0.1)',
@@ -55,34 +58,51 @@ export function CalibrationChart() {
         <h3 style={{
           color: '#60a5fa',
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
+          flexDirection: 'column',
+          gap: '8px',
           margin: 0,
           fontSize: '1.125rem',
-          fontWeight: 600
-        }}>
+          fontWeight: 600,
+          '@media (min-width: 640px)': {
+            flexDirection: 'row',
+            alignItems: 'center'
+          }
+        } as any}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
             Model Calibration (Brier Score: {data.brierScore})
           </div>
-          <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#a1a1aa' }}>
+          <div style={{ 
+            fontSize: '0.875rem', 
+            fontWeight: 400, 
+            color: '#a1a1aa',
+            background: 'rgba(255,255,255,0.05)',
+            padding: '4px 10px',
+            borderRadius: '6px'
+          }}>
             {data.interpretation}
-          </span>
+          </div>
         </h3>
       </div>
-      <div style={{ padding: '16px' }}>
-        <div style={{ height: '300px', width: '100%' }}>
+      <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: '300px', width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.calibrationBuckets} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={data.calibrationBuckets} margin={{ top: 20, right: 30, bottom: 25, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
               <XAxis 
                 dataKey="predictedP" 
                 stroke="#666" 
-                label={{ value: 'Predicted Probability', position: 'insideBottom', offset: -5 }} 
+                tick={{ fill: '#888' }}
+                tickMargin={10}
+                label={{ value: 'Predicted Probability', position: 'bottom', offset: 0, fill: '#888' }} 
               />
               <YAxis 
                 stroke="#666" 
-                label={{ value: 'Actual Recovery Rate', angle: -90, position: 'insideLeft' }} 
+                tick={{ fill: '#888' }}
+                tickMargin={10}
+                label={{ value: 'Actual Recovery Rate', angle: -90, position: 'insideLeft', offset: -10, fill: '#888', style: { textAnchor: 'middle' } }} 
               />
               <Tooltip 
                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46' }}

@@ -179,6 +179,7 @@ export function ApprovalQueue() {
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
                 <button 
+                  className="skiper-btn skiper-btn-approve"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', padding: '10px 16px', borderRadius: '6px', border: '1px solid rgba(34, 197, 94, 0.4)', backgroundColor: 'rgba(34,197,94,0.1)', color: '#4ade80', cursor: approving[currentIncident.id] ? 'not-allowed' : 'pointer', opacity: approving[currentIncident.id] ? 0.5 : 1, fontWeight: 'bold' }}
                   onClick={() => handleApprove(currentIncident.id)}
                   disabled={approving[currentIncident.id] || false}
@@ -187,6 +188,7 @@ export function ApprovalQueue() {
                   {approving[currentIncident.id] ? 'Approving...' : 'Approve & Send'}
                 </button>
                 <button 
+                  className="skiper-btn skiper-btn-reject"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', padding: '10px 16px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.3)', backgroundColor: 'transparent', color: '#ef4444', cursor: 'pointer' }}
                   onClick={() => handleReject(currentIncident.id)}
                 >

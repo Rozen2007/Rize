@@ -34,7 +34,7 @@ metricsRouter.get('/', async (req: Request, res: Response): Promise<any> => {
       .select({
         totalAttempts: count().as('total_attempts'),
         totalRecovered: count(
-          sql`CASE WHEN ${incidents.status} = 'RECOVERED' THEN 1 END`
+          sql`CASE WHEN ${incidents.status} IN ('RECOVERED', 'EXECUTED_PENDING_SETTLEMENT') THEN 1 END`
         ).as('total_recovered'),
         totalOrderValue: sql`SUM(${incidents.orderValue})`.as('total_order_value'),
       })
@@ -52,7 +52,7 @@ metricsRouter.get('/', async (req: Request, res: Response): Promise<any> => {
       .select({
         totalAttempts: count().as('total_attempts'),
         totalRecovered: count(
-          sql`CASE WHEN ${incidents.status} = 'RECOVERED' THEN 1 END`
+          sql`CASE WHEN ${incidents.status} IN ('RECOVERED', 'EXECUTED_PENDING_SETTLEMENT') THEN 1 END`
         ).as('total_recovered'),
       })
       .from(incidents)

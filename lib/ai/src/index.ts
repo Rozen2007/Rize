@@ -4,8 +4,8 @@ let openaiClient: OpenAI | null = null;
 function getOpenAIClient() {
   if (!openaiClient) {
     openaiClient = new OpenAI({
-      apiKey: process.env.NEMOTRON_API_KEY || 'dummy_key',
-      baseURL: process.env.NEMOTRON_BASE_URL || 'https://integrate.api.nvidia.com/v1',
+      apiKey: process.env.GROQ_API_KEY || 'dummy_key',
+      baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
       defaultHeaders: {
         'HTTP-Referer': 'http://localhost:3000',
         'X-Title': 'RIZE AI',
@@ -37,7 +37,7 @@ export async function classifyFailure(
   //   return mapping[errorCode];
   // }
 
-  if (!process.env.NEMOTRON_API_KEY || process.env.NEMOTRON_API_KEY === 'dummy_key') {
+  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'dummy_key') {
     return fallback;
   }
 
@@ -49,7 +49,7 @@ Description: ${errorDesc}
 Output JSON: { "reason": "...", "confidence": 0.0 to 1.0 }`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.NEMOTRON_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+      model: process.env.GROQ_MODEL || 'groq/compound',
       max_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: prompt }]
@@ -103,7 +103,7 @@ export async function generateCopy(
     ? `Complete your order for just ₹${amountINR.toFixed(0)}. Limited time offer!`
     : 'Complete your purchase securely.';
 
-  if (!process.env.NEMOTRON_API_KEY || process.env.NEMOTRON_API_KEY === 'dummy_key') {
+  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'dummy_key') {
     return fallback;
   }
 
@@ -112,10 +112,11 @@ export async function generateCopy(
     const prompt = `Write a short 1-sentence SMS to recover a payment.
 Action Type: ${actionType}
 Amount: ₹${amountINR.toFixed(0)}
+CRITICAL INSTRUCTION: You must use the Indian Rupee symbol (₹) for ALL currency and monetary values. Do not use the dollar sign ($) under any circumstances.
 Output JSON: { "copy": "..." }`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.NEMOTRON_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+      model: process.env.GROQ_MODEL || 'groq/compound',
       max_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [{ role: 'user', content: prompt }]
@@ -181,7 +182,7 @@ export async function generateWhyNot(
     fallback = `I elected to withhold intervention because the projected recovery probability was too low (${precStr}%), meaning taking action would yield a negative expected net income (ENI).`;
   }
 
-  if (!process.env.NEMOTRON_API_KEY || process.env.NEMOTRON_API_KEY === 'dummy_key') {
+  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'dummy_key') {
     console.warn('API Key missing, returning fallback');
     return fallback;
   }
@@ -192,15 +193,17 @@ export async function generateWhyNot(
 Explain in 2-3 short sentences why you made the following decision for a checkout incident:
 
 Incident Context:
-- Order Value: $${incidentData.orderValue}
+- Order Value: ₹${incidentData.orderValue}
 - Cohort: ${incidentData.affectedCohort}
 - Winning Action: ${incidentData.winningAction}
 - Discount Offered: ${finalDiscountStr}%
-- Expected Net Income (ENI): $${eniStr}
+- Expected Net Income (ENI): ₹${eniStr}
 - Confidence (PRec): ${precStr}%
 - Candidates Evaluated: ${candidatesJson}
 
 Keep the tone professional, analytical, and concise. Defend the decision strictly on maximizing ENI and confidence.
+
+CRITICAL INSTRUCTION: You must use the Indian Rupee symbol (₹) for ALL currency and monetary values. Do not use the dollar sign ($) under any circumstances.
 
 CRITICAL INSTRUCTION: You must output ONLY a valid JSON object containing your final explanation. DO NOT output any reasoning, thinking process, or markdown blocks. Format:
 {
@@ -208,7 +211,7 @@ CRITICAL INSTRUCTION: You must output ONLY a valid JSON object containing your f
 }`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.NEMOTRON_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+      model: process.env.GROQ_MODEL || 'groq/compound',
       max_tokens: 1500,
       response_format: { type: 'json_object' },
       messages: [
