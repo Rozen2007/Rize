@@ -39,8 +39,8 @@ importers:
         specifier: ^5.2.1
         version: 5.2.1
       openai:
-        specifier: ^7.9.0
-        version: 7.9.0(zod@4.5.4)
+        specifier: ^4.104.0
+        version: 4.104.0(zod@4.5.4)
       razorpay:
         specifier: ^2.9.8
         version: 2.9.8(debug@4.4.3)
@@ -87,6 +87,9 @@ importers:
       react-router-dom:
         specifier: ^7.18.3
         version: 7.18.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      recharts:
+        specifier: ^3.10.1
+        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(redux@5.0.1)
     devDependencies:
       '@types/node':
         specifier: ^24.13.3
@@ -103,9 +106,6 @@ importers:
       oxlint:
         specifier: ^1.79.0
         version: 1.81.0
-      recharts:
-        specifier: ^3.10.1
-        version: 3.10.1(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@18.3.1)(react@19.2.8)(redux@5.0.1)
       typescript:
         specifier: ~6.0.2
         version: 6.0.3
@@ -116,7 +116,7 @@ importers:
   lib/ai:
     dependencies:
       openai:
-        specifier: ^4.20.0
+        specifier: ^4.104.0
         version: 4.104.0(zod@3.25.76)
     devDependencies:
       typescript:
@@ -2157,30 +2157,6 @@ packages:
       ws: ^8.18.0
       zod: ^3.23.8
     peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
-
-  openai@7.9.0:
-    resolution: {integrity: sha512-Qfx4qKmPllnilbuP6NgEj5KPUxLShYxrlRPWh3ZRQgNgs5B1V52PrfAdEQbW9MTGq7MquDYFMm+K/KXxiY736w==}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
-      '@smithy/hash-node': '>=4.3.0 <5'
-      '@smithy/signature-v4': '>=5.4.0 <6'
-      undici: '>=5 <9'
-      ws: ^8.21.0
-      zod: ^3.25 || ^4.0
-    peerDependenciesMeta:
-      '@aws-sdk/credential-provider-node':
-        optional: true
-      '@smithy/hash-node':
-        optional: true
-      '@smithy/signature-v4':
-        optional: true
-      undici:
-        optional: true
       ws:
         optional: true
       zod:
@@ -4333,9 +4309,19 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openai@7.9.0(zod@4.5.4):
+  openai@4.104.0(zod@4.5.4):
+    dependencies:
+      '@types/node': 18.19.130
+      '@types/node-fetch': 2.6.13
+      abort-controller: 3.0.0
+      agentkeepalive: 4.6.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0
     optionalDependencies:
       zod: 4.5.4
+    transitivePeerDependencies:
+      - encoding
 
   oxlint@1.81.0:
     optionalDependencies:
