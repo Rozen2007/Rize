@@ -1,10 +1,9 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// Only load .env file in local development - Railway/Vercel inject env vars directly
+if (process.env.NODE_ENV !== 'production' && !process.env.RAILWAY_ENVIRONMENT && !process.env.VERCEL) {
+  dotenv.config();
+}
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import express, { type Express } from 'express';
 import { webhooksRouter } from './routes/webhooks.js';
 import { ingestRouter } from './routes/ingest.js';
