@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.railway.app/railway-schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "cd ../.. && npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm --filter @rize/ai --filter @rize/db --filter @rize/math-engine --filter @rize/razorpay --filter @rize/audit-ledger build && cd apps/api && pnpm run build"
+  },
+  "deploy": {
+    "startCommand": "node dist/index.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
