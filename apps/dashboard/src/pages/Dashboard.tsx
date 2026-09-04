@@ -96,12 +96,11 @@ export default function Dashboard() {
       {/* Top Navbar */}
       <nav style={{
         padding: '16px 32px',
-        background: 'rgba(0,0,0,0.5)',
+        background: 'rgba(14, 14, 14, 0.8)',
         borderBottom: '1px solid #222',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(14, 14, 14, 0.8)',
         backdropFilter: 'blur(12px)',
         position: 'sticky',
         top: 0,
