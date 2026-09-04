@@ -108,7 +108,7 @@ async function calibrateOutcomes() {
 }
 
 async function run() {
-  await generateIncidents(150);
+  await generateIncidents(20);
   console.log('Ingestion complete. Calibrating outcomes...');
   await calibrateOutcomes();
 }
