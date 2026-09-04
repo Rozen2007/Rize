@@ -18,5 +18,6 @@
       "esbuild",
       "es5-ext"
     ]
-  }
+  },
+  "packageManager": "pnpm@11.25.0"
 }
