@@ -9,7 +9,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "cd ../.. && pnpm --filter @rize/ai --filter @rize/db --filter @rize/math-engine --filter @rize/razorpay --filter @rize/audit-ledger build",
+  "cd ../.. && pnpm --filter @rize/ai --filter @rize/db --filter @rize/math-engine --filter @rize/razorpay build",
+  "cd ../.. && pnpm --filter @rize/audit-ledger build",
   "cd ../../apps/api && pnpm exec tsc"
 ]
 
