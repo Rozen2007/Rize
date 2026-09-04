@@ -31,5 +31,8 @@
   "exclude": [
     "tests",
     "api"
+  ],
+  "include": [
+    "src/**/*"
   ]
 }
