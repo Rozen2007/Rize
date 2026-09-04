@@ -120,7 +120,7 @@ export default function Dashboard() {
       </nav>
 
       <div className="container" style={{ flex: 1, padding: '48px 24px' }}>
-        {/* Glowing Hero Background Effect - result.dev style (subtle white glow) */}
+        {/* Glowing Hero Background Effect - subtle white glow */}
         <div style={{
           position: 'absolute',
           top: '0',
