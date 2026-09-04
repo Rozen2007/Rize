@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { Target } from 'lucide-react';
 
 export function CalibrationChart() {
   const [data, setData] = useState<any>(null);
@@ -18,23 +16,62 @@ export function CalibrationChart() {
   }, []);
 
   if (loading) return <div>Loading calibration...</div>;
-  if (!data?.calibrationBuckets) return null;
+  if (!data?.calibrationBuckets) {
+    return (
+      <div style={{
+        background: 'rgba(0, 0, 0, 0.3)',
+        border: '1px solid rgba(59, 130, 246, 0.2)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.1)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '380px',
+        color: '#71717a',
+        padding: '24px',
+        textAlign: 'center'
+      }}>
+        {data?.message || 'Need at least 10 incidents for calibration model to run'}
+      </div>
+    );
+  }
 
   return (
-    <Card className="border-blue-500/20">
-      <CardHeader>
-        <CardTitle className="text-blue-400 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Target className="w-5 h-5" />
+    <div style={{
+      background: 'rgba(0, 0, 0, 0.3)',
+      border: '1px solid rgba(59, 130, 246, 0.2)',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.1)',
+      backdropFilter: 'blur(10px)'
+    }}>
+      <div style={{
+        background: 'rgba(59, 130, 246, 0.1)',
+        padding: '16px',
+        borderBottom: '1px solid rgba(59, 130, 246, 0.2)'
+      }}>
+        <h3 style={{
+          color: '#60a5fa',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          margin: 0,
+          fontSize: '1.125rem',
+          fontWeight: 600
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
             Model Calibration (Brier Score: {data.brierScore})
           </div>
-          <span className="text-sm font-normal text-zinc-400">
+          <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#a1a1aa' }}>
             {data.interpretation}
           </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px] w-full">
+        </h3>
+      </div>
+      <div style={{ padding: '16px' }}>
+        <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data.calibrationBuckets} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -64,7 +101,7 @@ export function CalibrationChart() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

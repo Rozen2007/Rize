@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type RequestHandler } from 'express';
-import { db, incidents, cohortStats } from '@rize/db';
+import { db, incidents, cohortStats, processedWebhookEvents } from '@rize/db';
 import { eq, sql } from 'drizzle-orm';
 import { verifyWebhookSignature } from '@rize/razorpay';
 import { commitAuditBlockAtomic } from '@rize/audit-ledger';
@@ -9,7 +9,7 @@ export const webhooksRouter: Router = Router();
 // Keep raw body for verification
 webhooksRouter.post(
   '/razorpay',
-  ((req: Request, res: Response) => {
+  (async (req: Request, res: Response) => {
     try {
       const signature = req.headers['x-razorpay-signature'] as string;
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_secret';
@@ -24,6 +24,23 @@ webhooksRouter.post(
 
       const payload = JSON.parse(rawBody);
       const eventType = payload.event;
+
+      const eventId = req.headers['x-razorpay-event-id'] as string;
+      if (!eventId) {
+        res.status(400).json({ error: 'Missing x-razorpay-event-id header' });
+        return;
+      }
+
+      // Dedupe: Insert event into processed_webhook_events to ensure idempotency
+      const inserted = await db.insert(processedWebhookEvents)
+        .values({ eventId, eventType })
+        .onConflictDoNothing()
+        .returning();
+
+      if (inserted.length === 0) {
+        res.status(200).json({ status: 'IDEMPOTENT_SKIPPED' });
+        return;
+      }
 
       if (
         eventType !== 'payment_link.paid' &&

@@ -112,7 +112,15 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       }
 
       // Step 2: Classify Failure (AI)
-      const { reason: failureReason, confidence: classifierConfidence } = await classifyFailureWithTimeout(data.errorCode, data.errorDesc);
+      let failureReason = 'PRICE_FRICTION';
+      let classifierConfidence = 0.85;
+      try {
+        const result = await classifyFailureWithTimeout(data.errorCode, data.errorDesc);
+        failureReason = result.reason;
+        classifierConfidence = result.confidence;
+      } catch (err) {
+        console.warn('AI classification failed, falling back to defaults:', err);
+      }
       
       const cohortKey = `${data.device}:${failureReason}:${data.paymentMethod}`;
 
@@ -183,6 +191,17 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       const tournamentResult = runInterventionTournament(ctxInput, cohortStatsMap);
       const winner = tournamentResult.winner;
 
+      // AI Copy Generation (generate early so we can preview in Approval Queue)
+      let copyMsg: string | null = null;
+      if (winner.type !== 'DO_NOTHING') {
+        copyMsg = 'Complete your purchase now!';
+        try {
+          copyMsg = await generateCopyWithTimeout(winner.type, data.orderValue - (winner.discountAmount || 0));
+        } catch (err) {
+          console.warn('AI copy generation failed, falling back to default copy:', err);
+        }
+      }
+
       // Step 4.5: Approval Gate (P1)
       if (winner.eni > merchantConfig.tauApprove) {
         // High-ENI decision requires human approval
@@ -207,6 +226,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
           discountOffered: winner.discountAmount || 0,
           candidatesJson: JSON.stringify(tournamentResult),
           rejectionReason: tournamentResult.rejectionExplanation || null,
+          smsCopy: copyMsg,
           razorpayLinkId: null,
           razorpayLinkUrl: null,
           status: finalStatus,
@@ -243,8 +263,6 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       let razorpayLinkUrl: string | null = null;
 
       if (finalStatus === 'EXECUTING' && winner.type !== 'DO_NOTHING') {
-        // AI Copy Generation
-        const copyMsg = await generateCopyWithTimeout(winner.type, data.orderValue - (winner.discountAmount || 0));
         
         try {
           const linkResult = await createRazorpayLink(
@@ -255,7 +273,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
               amount: data.orderValue,
               currency: 'INR',
               accept_partial: false,
-              description: copyMsg,
+              description: copyMsg || '',
               customer: {
                 name: 'Demo User',
                 contact: data.customerPhone || '9999999999',
@@ -298,6 +316,7 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
         discountOffered: winner.discountAmount || 0,
         candidatesJson: JSON.stringify(tournamentResult),
         rejectionReason: tournamentResult.rejectionExplanation || null,
+        smsCopy: copyMsg,
         razorpayLinkId,
         razorpayLinkUrl,
         status: finalStatus,
@@ -311,13 +330,13 @@ ingestRouter.post('/', async (req: Request, res: Response) => {
       });
     });
 
-    return res.status(200).json({ status: 'ok', incidentId: 'created' });
+    return res.status(200).json({ status: 'ok', incidentId });
     } catch (e: any) {
       console.error('Ingest processing error:', e);
       if (e.name === 'ZodError') {
         res.status(400).json({ error: 'Validation failed', details: e.errors });
         return;
       }
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: 'Internal server error', msg: e.message, stack: e.stack });
     }
   });

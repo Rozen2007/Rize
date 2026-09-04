@@ -59,8 +59,10 @@ export function runInterventionTournament(
   candidates.push({ type: 'PAYMENT_RECOVERY_LINK', pRecovery: pLink, discountAmount: 0, msgCost: 1.5,
     eni: pLink * (grossProfit - mdrCost) - 1.5, eligible: true, note: 'Retry link, no margin cost' });
 
-  // Discount eligible ONLY for PRICE_FRICTION (Blocker #4)
-  const discountEligible = ctx.failureReason === 'PRICE_FRICTION';
+  // Discount eligible ONLY for PRICE_FRICTION (Blocker #4) and confidence >= threshold
+  const minConfidence = ctx.minClassifierConfidence ?? 0.8;
+  const isConfident = ctx.classifierConfidence !== undefined ? ctx.classifierConfidence >= minConfidence : true;
+  const discountEligible = ctx.failureReason === 'PRICE_FRICTION' && isConfident;
   const discount = Math.min(ctx.orderValue * discountCapPct, grossProfit * 0.40);
   const pDisc = discountEligible ? calculateEmpiricalPRec('TARGETED_DYNAMIC_DISCOUNT', ctx.failureReason, cohortStatsMap?.['TARGETED_DYNAMIC_DISCOUNT']) : 0;
   candidates.push({ type: 'TARGETED_DYNAMIC_DISCOUNT', pRecovery: pDisc, discountAmount: discount, msgCost: 2.0,

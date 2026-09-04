@@ -52,6 +52,7 @@ export const incidents = pgTable('incidents', {
   discountOffered: doublePrecision('discount_offered').default(0).notNull(),
   candidatesJson: text('candidates_json').notNull(),               // full tournament, for "why-not"
   rejectionReason: text('rejection_reason'),
+  smsCopy: text('sms_copy'),
   razorpayLinkId: text('razorpay_link_id').unique(),
   razorpayLinkUrl: text('razorpay_link_url'),
   razorpayPaymentId: text('razorpay_payment_id').unique(),

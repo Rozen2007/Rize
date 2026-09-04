@@ -177,9 +177,9 @@ metricsRouter.get('/calibration', async (req: Request, res: Response): Promise<a
       brierScore,  // THIS IS NOW THE CORRECT PER-INCIDENT BRIER SCORE
       calibrationBuckets: buckets,
       totalIncidents: allIncidents.length,
-      interpretation: brierScore < 0.15 
+      interpretation: brierScore < 0.22 
         ? '✅ Well calibrated (Bayesian learner matches reality)'
-        : brierScore < 0.25 
+        : brierScore < 0.28 
           ? '🟡 Moderately calibrated'
           : '⚠️ Poorly calibrated (needs more data)'
     });

@@ -18,10 +18,16 @@ export function IncidentFeed() {
   const [loadingExpl, setLoadingExpl] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    fetch('/api/incidents')
-      .then((res) => res.json())
-      .then((data) => setIncidents(data))
-      .catch(console.error);
+    const fetchIncidents = () => {
+      fetch('/api/incidents')
+        .then((res) => res.json())
+        .then((data) => setIncidents(data))
+        .catch(console.error);
+    };
+
+    fetchIncidents();
+    const interval = setInterval(fetchIncidents, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const formatCohortTags = (key: string) => key.split(':').map(p => p.replace(/_/g, ' ').toUpperCase());
@@ -166,9 +172,11 @@ export function IncidentFeed() {
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '4px' }}>Intervention</div>
             <div style={{ fontSize: '1.125rem', fontWeight: '600', color: 'white' }}>
-              {currentIncident.discountOffered > 0 
-                ? `${(currentIncident.discountOffered * 100).toFixed(0)}% Discount` 
-                : 'Payment Link'}
+              {currentIncident.winningAction === 'DO_NOTHING'
+                ? 'Do Nothing (DO_NOTHING)'
+                : currentIncident.discountOffered > 0 
+                  ? `${((currentIncident.discountOffered / currentIncident.orderValue) * 100).toFixed(0)}% Discount (₹${currentIncident.discountOffered})` 
+                  : 'Payment Link'}
             </div>
           </div>
         </div>

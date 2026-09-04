@@ -53,6 +53,8 @@ export default function Dashboard() {
     };
 
     fetchAllMetrics();
+    const interval = setInterval(fetchAllMetrics, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -123,7 +125,7 @@ export default function Dashboard() {
           top: '0',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '100vw',
+          width: '100%',
           height: '500px',
           background: 'radial-gradient(circle at center, rgba(138,43,226,0.15) 0%, transparent 60%)',
           zIndex: -1,
@@ -172,17 +174,38 @@ export default function Dashboard() {
           <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Live Bayesian Updates</div>
         </div>
         
-        <div className="grid grid-cols-2" style={{ marginBottom: '64px' }}>
+        <div 
+          style={{ 
+            display: 'flex', 
+            gap: '24px', 
+            overflowX: 'auto', 
+            paddingBottom: '24px',
+            marginBottom: '40px',
+            scrollSnapType: 'x mandatory',
+            // Hide scrollbar but keep functionality
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.2) rgba(255,255,255,0.05)'
+          }}
+          className="custom-scrollbar"
+        >
           {cohorts.map((cohort) => {
             const cohortData = data[cohort];
             if (!cohortData) return null;
             return (
-              <CohortComparison 
-                key={cohort}
-                cohortKey={cohortData.cohortKey}
-                control={cohortData.control}
-                treatment={cohortData.treatment}
-              />
+              <div 
+                key={cohort} 
+                style={{ 
+                  minWidth: '400px', 
+                  flex: '0 0 auto',
+                  scrollSnapAlign: 'start'
+                }}
+              >
+                <CohortComparison 
+                  cohortKey={cohortData.cohortKey}
+                  control={cohortData.control}
+                  treatment={cohortData.treatment}
+                />
+              </div>
             );
           })}
         </div>
@@ -203,9 +226,22 @@ export default function Dashboard() {
         @media (min-width: 1024px) {
           .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
       `}</style>
     </div>
   );
 }
 
-export default Dashboard;

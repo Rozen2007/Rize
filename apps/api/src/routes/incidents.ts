@@ -82,10 +82,7 @@ incidentsRouter.post('/:id/approve', (async (req: Request, res: Response) => {
     let razorpayLinkUrl: string | null = null;
 
     try {
-      const copyMsg = await generateCopyWithTimeout(
-        incident.winningAction,
-        incident.orderValue - (incident.discountOffered || 0)
-      );
+      let copyMsg = incident.smsCopy || 'Complete your purchase now!';
       
       const linkResult = await createRazorpayLink(
         process.env.RAZORPAY_KEY_ID || 'test',
@@ -98,7 +95,7 @@ incidentsRouter.post('/:id/approve', (async (req: Request, res: Response) => {
           description: copyMsg,
           customer: {
             name: 'Demo User',
-            contact: incident.customerPhone || '9999999999',
+            contact: incident.customerPhone === '9999999999' ? '9876543210' : (incident.customerPhone || '9876543210'),
             email: 'demo@example.com'
           },
           notify: { sms: true, email: false },

@@ -1,0 +1,25 @@
+INSERT INTO "incidents" (
+  "id", "merchant_id", "order_value", "failure_reason", "device", "payment_method", "affected_cohort",
+  "customer_phone", "checkout_id", "razorpay_event_id", "status", "winning_action", 
+  "winning_eni", "winning_prec", "discount_offered", "is_control", "candidates_json"
+) VALUES 
+('mock_id_1', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_1', 'evt_mock_1', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 5000, 0.9, 1000, false, '[]'),
+('mock_id_2', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_2', 'evt_mock_2', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 4000, 0.8, 1000, false, '[]'),
+('mock_id_3', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_3', 'evt_mock_3', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 3000, 0.7, 1000, false, '[]'),
+('mock_id_4', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_4', 'evt_mock_4', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 2000, 0.6, 1000, false, '[]'),
+('mock_id_5', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_5', 'evt_mock_5', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 1000, 0.5, 1000, false, '[]'),
+('mock_id_6', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_6', 'evt_mock_6', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 800, 0.4, 1000, false, '[]'),
+('mock_id_7', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_7', 'evt_mock_7', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 500, 0.3, 1000, false, '[]'),
+('mock_id_8', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_8', 'evt_mock_8', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 200, 0.2, 1000, false, '[]'),
+('mock_id_9', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_9', 'evt_mock_9', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 100, 0.1, 1000, false, '[]'),
+('mock_id_10', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_10', 'evt_mock_10', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 4500, 0.85, 1000, false, '[]'),
+('mock_id_11', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_11', 'evt_mock_11', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 3500, 0.75, 1000, false, '[]'),
+('mock_id_12', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_12', 'evt_mock_12', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 2500, 0.65, 1000, false, '[]'),
+('mock_id_13', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_13', 'evt_mock_13', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 1500, 0.55, 1000, false, '[]'),
+('mock_id_14', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_14', 'evt_mock_14', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 1200, 0.45, 1000, false, '[]'),
+('mock_id_15', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_15', 'evt_mock_15', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 700, 0.35, 1000, false, '[]'),
+('mock_id_16', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_16', 'evt_mock_16', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 400, 0.25, 1000, false, '[]'),
+('mock_id_17', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_17', 'evt_mock_17', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 150, 0.15, 1000, false, '[]'),
+('mock_id_18', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_18', 'evt_mock_18', 'EXPIRED', 'TARGETED_DYNAMIC_DISCOUNT', 50, 0.05, 1000, false, '[]'),
+('mock_id_19', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_19', 'evt_mock_19', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 4800, 0.88, 1000, false, '[]'),
+('mock_id_20', 'test', 50000, 'PRICE_FRICTION', 'desktop', 'card', 'desktop:PRICE_FRICTION:card', '9876543210', 'chk_mock_20', 'evt_mock_20', 'RECOVERED', 'TARGETED_DYNAMIC_DISCOUNT', 3800, 0.78, 1000, false, '[]');
