@@ -76,7 +76,7 @@ export async function classifyFailureWithTimeout(
   errorDesc: string
 ): Promise<{ reason: string; confidence: number }> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 1500);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const result = await classifyFailure(errorCode, errorDesc, { signal: controller.signal });
@@ -139,7 +139,7 @@ export async function generateCopyWithTimeout(
   amountINR: number
 ): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 1500);
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
     const result = await generateCopy(actionType, amountINR, { signal: controller.signal });
