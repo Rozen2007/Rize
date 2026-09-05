@@ -7,7 +7,9 @@ RIZE is a production-grade, AI-driven payment recovery platform that rescues fai
 2. **Generative AI** — Real-time, context-aware SMS copy and merchant explanations
 3. **Cryptographic Audit Trail** — Tamper-proof ledger of every decision, human or automated
 
-The result: **+40% incremental recovery rate** with mathematically proven calibration and 100% human oversight for high-value decisions.
+The result: **+27.8pp incremental recovery rate (+6.2× over control)** with mathematically proven calibration and 100% human oversight for high-value decisions.
+
+> Verified on a 10,000-incident synthetic dataset: Control recovers 4.5%, Treatment (RIZE) recovers 32.3%, Brier Score 0.196, ₹20.7M total recovered GMV.
 
 ---
 
@@ -80,7 +82,7 @@ where P(recovery) is learned empirically from historical cohort data
 │  TIER 3: POLICY GATE (Human Approval for High Risk)            │
 │  ├─ Input: { winningENI, discountAmount }                       │
 │  ├─ Decision:                                                    │
-│  │   if (ENI > ₹5000 or discount > ₹500):                      │
+│  │   if (winner.eni > tauApprove, default ₹5000):              │
 │  │     Status = PENDING_APPROVAL                               │
 │  │     Route to Approval Queue                                 │
 │  │   else:                                                      │
@@ -114,10 +116,10 @@ RIZE doesn't just *claim* its probability estimates are accurate — it **proves
 
 ### Calibration Proof: Brier Score < 0.22
 
-After seeding 60 realistic incidents, RIZE's Bayesian learner achieves:
+After seeding 10,000 realistic incidents, RIZE's Bayesian learner achieves:
 
 ```
-Brier Score = 0.18  (Lower is better; 0.25 = random guessing)
+Brier Score = 0.196  (Lower is better; 0.25 = random guessing)
 Interpretation: "Well-calibrated"
 
 This means: When RIZE predicts 72% recovery, actual recovery is ~72% ±5%
@@ -180,7 +182,7 @@ Our curve follows diagonal → AI predictions match reality
 │                                                                 │
 │  Tier 1: AI Classification (Groq)                            │
 │  ├─ Input: errorCode="3DS_TIMEOUT", description="Auth failed"│
-│  ├─ Call: groq/mixtral-8x7b (instant inference)             │
+│  ├─ Call: groq/compound (instant inference)               │
 │  └─ Output: { reason: "AUTH_TIMEOUT", confidence: 0.92 }    │
 │                                                                 │
 │  Tier 2: Bayesian Tournament                                  │
@@ -284,7 +286,7 @@ Our curve follows diagonal → AI predictions match reality
 │  Dashboard Update (Real-time):                                │
 │  ├─ Metrics: +1 RECOVERED incident                            │
 │  ├─ Incremental Lift: (treatment recovery - control recovery) │
-│  │   Example: Treatment 66%, Control 33% → 33% lift          │
+│  │   Example: Treatment 32.3%, Control 4.5% → +27.8pp       │
 │  ├─ Calibration chart refreshes (Brier Score recalculated)   │
 │  └─ Incident feed shows incident with "✓ RECOVERED" badge   │
 └────────────────────────────────────────────────────────────────┘
@@ -413,10 +415,10 @@ If anyone tampers with event #2, hash(3) changes → breaks chain → detected
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │ METRICS (Top)                                        │  │
 │  ├──────────────────────────────────────────────────────┤  │
-│  │ Incremental Lift:  +33%    │  Control: 33%          │  │
-│  │ Estimated GMV:  ₹82,400    │  Treatment: 66%        │  │
-│  │ Brier Score:     0.18       │  Calibrated: ✓         │  │
-│  │ Decisions:        60        │  Recovered: 40         │  │
+│  │ Incremental Lift:  +27.8pp  │  Control: 4.5%          │  │
+│  │ Estimated GMV:  ₹20.7M      │  Treatment: 32.3%       │  │
+│  │ Brier Score:     0.196       │  Calibrated: ✓         │  │
+│  │ Cohorts:         57          │  Recovered: 2,846      │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐  │
@@ -472,6 +474,23 @@ If anyone tampers with event #2, hash(3) changes → breaks chain → detected
 
 ---
 
+## 📡 Real-Time Metrics
+
+The three headline KPIs — **Incremental Lift, Estimated GMV, and Active Interventions** — are
+served by a single aggregate endpoint:
+
+```
+GET /api/metrics/summary
+```
+
+One SQL query sums all 57 cohorts and returns `totalIncrementalGmv`, `averageIncrementalRate`,
+`activeInterventions`, and overall control/treatment rates in one round trip (~0.3s). The dashboard
+and landing page poll this every 5 seconds and render cohort cards in parallel, so numbers tick up
+live as webhooks mark incidents `RECOVERED` — no stale data, no 57-request waterfall. All `/api/*`
+responses send `Cache-Control: no-store` so Vercel's edge never serves cached metrics.
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Backend & Core Logic
@@ -479,10 +498,10 @@ If anyone tampers with event #2, hash(3) changes → breaks chain → detected
 - **Node.js & Express**: High-performance REST API
 - **Drizzle ORM**: Type-safe schema + migrations
 - **PostgreSQL 14+**: ACID-compliant database
-- **Groq API**: Fastest open-source LLM inference (50+ tokens/sec)
+- **Groq API**: Fastest open-source LLM inference
 
 ### Frontend Dashboard
-- **React 18**: Component-based UI
+- **React 19**: Component-based UI
 - **Vite**: Lightning-fast dev server & bundling
 - **Recharts**: Interactive calibration visualization
 - **CSS**: Glassmorphism dark mode design
@@ -511,7 +530,7 @@ rize-monorepo/
 │   │   ├── src/client.ts     # Razorpay API calls
 │   │   └── tests/            # 2 verification tests
 │   ├── db/                   # Drizzle ORM + schema
-│   │   ├── src/schema.ts     # 8 tables, 4 enums
+│   │   ├── src/schema.ts     # 5 tables, 3 enums
 │   │   ├── src/db.ts         # Connection pool
 │   │   └── drizzle.config.ts # Migration config
 │   └── audit-ledger/         # Cryptographic hash chain
@@ -522,10 +541,10 @@ rize-monorepo/
 │   │   ├── src/routes/
 │   │   │   ├── ingest.ts     # POST /internal/ingest (3-tier decision)
 │   │   │   ├── incidents.ts  # GET /api/incidents, POST /approve
-│   │   │   ├── metrics.ts    # GET /api/metrics, /calibration
+│   │   │   ├── metrics.ts    # GET /api/metrics, /summary, /calibration
 │   │   │   └── webhooks.ts   # POST /webhooks/razorpay (idempotent)
 │   │   ├── scripts/
-│   │   │   ├── seed.ts       # Generate 60 seed incidents
+│   │   │   ├── seed_from_dataset.ts  # Seed 10k synthetic incidents
 │   │   │   ├── brier.ts      # Calculate calibration proof
 │   │   │   └── simulate_full_demo.ts
 │   │   └── tests/            # 10 unit tests (100% passing)
@@ -542,7 +561,12 @@ rize-monorepo/
 │       │   └── MetricCard.tsx
 │       └── vite.config.ts
 │
-├── .env.example              # Configuration template
+├── generate_dataset.py        # Synthetic dataset generator (10k rows)
+├── validate_dataset.py        # Statistical validation of generated data
+├── DATASET_README.md          # Dataset stats, calibration deciles, reproducibility
+├── data_dictionary.md         # Full 32-column data dictionary
+├── synthetic_payment_recovery_data.csv   # The 10k-row dataset
+├── .env.example              # Configuration template (safe defaults)
 ├── pnpm-workspace.yaml       # Monorepo config
 └── tsconfig.base.json        # Shared TypeScript config
 ```
@@ -555,7 +579,7 @@ rize-monorepo/
 ```bash
 git clone https://github.com/Rozen2007/Rize.git
 cd Rize
-npm install
+pnpm install
 ```
 
 ### 2. Set Up Environment
@@ -565,47 +589,51 @@ cp .env.example .env
 
 Fill in `.env`:
 ```bash
-# Database
+# Database (Postgres URI)
 DATABASE_URL=postgresql://user:password@localhost:5432/rize
 
-# API Security
-INTERNAL_API_KEY=your_internal_key
+# API Security (internal ingest auth; must match what callers send)
+INTERNAL_API_KEY=test_internal_key_123
 
-# Groq LLM (Free tier, unlimited API calls)
-GROQ_API_KEY=gsk_... (get from https://console.groq.com)
+# Razorpay (TEST MODE ONLY — use mock/test keys, never production)
+RAZORPAY_KEY_ID=your_test_key_id
+RAZORPAY_KEY_SECRET=your_test_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
 
-# Razorpay (Test mode keys)
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-RAZORPAY_WEBHOOK_SECRET=...
+# AI Models (Groq)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=groq/compound
 ```
+
+> **Sensitive data note:** `.env` is gitignored and contains real credentials. Only `.env.example` is committed (safe placeholders). Never commit `.env`, API keys, `DATABASE_URL`, or Razorpay secrets.
 
 ### 3. Database Setup
 ```bash
-npm run db:push -w @rize/db    # Run migrations
-npm run seed -w @rize/api      # Seed 60 demo incidents
+pnpm --filter @rize/db push     # Run schema push against Postgres
+pnpm --filter @rize/api seed:dataset   # Seed 10k synthetic incidents + cohort stats
 ```
 
 ### 4. Build & Run
 ```bash
 # Terminal 1: Start API
-npm run dev -w @rize/api       # Listens on port 3000
+pnpm --filter @rize/api dev     # Listens on port 3000
 
 # Terminal 2: Start Dashboard
-npm run dev -w @rize/dashboard # Opens http://localhost:5173
+pnpm --filter @rize/dashboard dev   # Opens http://localhost:5173
 ```
 
 ### 5. Verify Everything Works
 ```bash
 # Run all tests
-npm test --workspaces
+pnpm test
 
 # Check calibration
 curl http://localhost:3000/api/metrics/calibration | jq '.brierScore'
-# Should output: 0.18 (or similar, < 0.22 = well-calibrated)
+# Should output: 0.196 (or similar, < 0.22 = well-calibrated)
 
 # Simulate incident flow
-npx tsx apps/api/scripts/simulate_full_demo.ts
+pnpm --filter @rize/api tsx scripts/simulate_full_demo.ts
 ```
 
 ---
@@ -627,49 +655,71 @@ npx tsx apps/api/scripts/simulate_full_demo.ts
 
 ---
 
-## 📈 Expected Metrics at Demo
+## 📈 Metrics (10,000-Incident Synthetic Dataset)
 
-When running the full simulator:
+The dashboard, calibration curve, and cohort comparisons run against the committed synthetic dataset (`synthetic_payment_recovery_data.csv`), seeded into Postgres:
 
 ```
-Metric                          Value        Comment
+Metric                                  Value        Comment
 ──────────────────────────────────────────────────────────
-Total Incidents Seeded          60           Across device/method/failure type
-Control Group (Holdout)         6            No intervention
-Treatment (Algorithm)           54           Received decision-engine output
+Total Incidents Seeded                  10,000       Generated (seed 42), validated
+Control Group (Holdout)                 1,185        No intervention (11.8%)
+Treatment (Algorithm)                   8,815        Received decision-engine output
 
-Control Recovery Rate           33%          Expected baseline
-Treatment Recovery Rate         66%          With interventions
-Incremental Lift                +33 points   Treatment - Control
-Estimated GMV Recovered         ₹82,400      60 × avg order value × lift
+Control Recovery Rate                   4.47%        Baseline holdout
+Treatment Recovery Rate                 32.29%       With interventions
+Incremental Lift                        +27.8pp      Treatment − Control (≈6.2×)
+Total Recovered GMV                     ₹20.7M       Treatment recoveries
+Incremental GMV Lift                    ₹16.7M       Above-control revenue saved
+Median / Mean/Max Order                 ₹3,450 / ₹7,169 / ₹321,400
+Unique Recovered Customers              3,473        Customer-level impact
 
-Approval Queue Items            3            High-ENI decisions
-Auto-Executed Decisions         51           Below threshold
-Rejected Approvals              0 (example)  Human has choice
+Interventions                           3,244 payment_retry · 2,082 alt payment ·
+                                        1,596 offer   · 723 (6%) · 378 (4%) ·
+                                        368 (8%) · 227 (2%) · 197 urgency
 
-Bayesian Calibration (Brier)    < 0.22       "Well-calibrated"
-Audit Ledger Entries            ~200+        Every event logged
-Webhook Idempotency Tests       100%         Duplicate events ignored
-Margin Floor Enforced           Yes          Zero negative-margin approvals
+Brier Score                             0.196        "Well-calibrated"
+Approval Queue (ENI > ₹5,000)           320          Awaiting human review
+Cohorts (device:reason:method)          57           Live in dashboard
 ```
+
+> Full statistics, calibration deciles, and reproducibility steps: see `DATASET_README.md`.
+> Column-by-column meaning: see `data_dictionary.md`.
 
 ---
 
-## 🔒 Security & Compliance
+## 🔒 Security & Sensitive Data
 
-✅ **Authorization**: Timing-safe signature verification on ingest  
+✅ **Authorization**: Timing-safe signature verification on ingest (`INTERNAL_API_KEY`)  
 ✅ **Idempotency**: Webhook deduplication via processedWebhookEvents table  
 ✅ **Audit Trail**: Cryptographically linked ledger with SHA-256 hash chain  
 ✅ **Determinism**: Reproducible via seedrandom and transaction isolation  
-✅ **Type Safety**: Strict TypeScript across all 41 source files  
+✅ **Type Safety**: Strict TypeScript across all 32 source files  
 ✅ **Control Group**: Unbiased uniform random assignment per-checkout  
+
+### Sensitive Data Handling
+
+- **`.env` is never committed** — it is gitignored and holds real credentials (live `DATABASE_URL`,
+  `GROQ_API_KEY`, Razorpay keys).
+- **`.env.example` is the only committed env template** — it ships with safe placeholders only
+  (`test_internal_key_123`, `your_test_key_id`, `your_test_key_secret`, `your_webhook_secret`).
+- Defaults in code are test-safe: `INTERNAL_API_KEY` falls back to `demo_key`,
+  `RAZORPAY_WEBHOOK_SECRET` falls back to `test_secret`, and `createRazorpayLink` returns a mock
+  link if the Razorpay API is unreachable.
+- **Groq keys** (`GROQ_API_KEY`) are used server-side only; never exposed to the dashboard bundle.
+- The dashboard fetches `/api/*` through a Vercel rewrite to the Railway backend — no secrets
+  are shipped to the browser.
+- **Do not run `pnpm test` against the shared demo DB** without re-seeding afterwards: the API test
+  suite deletes seeded rows, so always `pnpm --filter @rize/api seed:dataset` after a test run.
+- Hosting: Railway (backend) + Neon (Postgres) + Vercel (dashboard). Dashboard rewrite config:
+  `apps/dashboard/vercel.json` maps `/api/:path*` → `https://rize-api-production.up.railway.app/api/:path*`.  
 
 ---
 
 
 
 ### Answer "How Do You Know the AI Isn't Hallucinating?"
-> "We have three gates against that. First, AI classification includes a confidence score. Second, discounts only trigger if confidence ≥ 80%. Third, and most importantly, our Bayesian learner's predicted recovery probabilities match actual outcomes—our Brier Score is 0.18, which mathematically proves calibration."
+> "We have three gates against that. First, AI classification includes a confidence score. Second, discounts only trigger if confidence ≥ 80%. Third, and most importantly, our Bayesian learner's predicted recovery probabilities match actual outcomes—our Brier Score is 0.196, which mathematically proves calibration."
 
 ---
 
@@ -687,19 +737,21 @@ echo $GROQ_API_KEY | wc -c  # Should be ~40 chars
 **Dashboard won't build?**
 ```bash
 # Recharts must be in dependencies, not devDependencies
-npm install -w @rize/dashboard
+pnpm --filter @rize/dashboard install
 
 # Clear build cache
 rm -rf apps/dashboard/.vite apps/dashboard/dist
-npm run build -w @rize/dashboard
+pnpm --filter @rize/dashboard build
 ```
 
 **Tests failing?**
 ```bash
-npm test --workspaces
+pnpm test
 
 # If math-engine tests fail, check src/bayesian.ts and src/eni.ts
 # If api tests fail, check that @rize/ai is mocked (it's in tests/ingest.test.ts)
+# After running API tests, re-seed the demo data:
+pnpm --filter @rize/api seed:dataset
 ```
 
 ---
@@ -710,7 +762,7 @@ Traditional recovery engines say: "Give everyone a discount and hope they conver
 
 RIZE says: "Every customer is different. Calculate the mathematically optimal intervention per failure mode, protect your margin, and let humans review high-risk decisions."
 
-**Result:** +40% incremental recovery rate with **proven calibration**, not guesswork.
+**Result:** +27.8pp incremental recovery rate (4.47% → 32.29%) with **proven calibration**, not guesswork.
 
 ---
 

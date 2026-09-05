@@ -22,28 +22,43 @@ interface MetricsData {
   estimated_incremental_gmv: number;
 }
 
+interface SummaryData {
+  totalIncrementalGmv: number;
+  averageIncrementalRate: number;
+  activeInterventions: number;
+  cohortCount: number;
+}
+
 export default function Dashboard() {
   const [cohorts, setCohorts] = useState<string[]>([]);
   const [data, setData] = useState<Record<string, MetricsData>>({});
+  const [summary, setSummary] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAllMetrics = async () => {
       try {
-        const cohortRes = await fetch('/api/metrics/cohorts');
+        const [cohortRes, summaryRes] = await Promise.all([
+          fetch('/api/metrics/cohorts'),
+          fetch('/api/metrics/summary'),
+        ]);
         if (!cohortRes.ok) throw new Error('Failed to fetch cohorts list');
+        if (!summaryRes.ok) throw new Error('Failed to fetch summary');
         const cohortJson = await cohortRes.json();
+        const summaryJson = await summaryRes.json();
         const availableCohorts: string[] = cohortJson.cohorts || [];
         setCohorts(availableCohorts);
+        setSummary(summaryJson);
 
         const results: Record<string, MetricsData> = {};
-        for (const cohort of availableCohorts) {
+        await Promise.all(availableCohorts.map(async (cohort) => {
           const res = await fetch(`/api/metrics?cohortKey=${cohort}`);
-          if (!res.ok) throw new Error(`Failed to fetch ${cohort}`);
-          const json = await res.json();
-          results[cohort] = json;
-        }
+          if (res.ok) {
+            const json = await res.json();
+            results[cohort] = json;
+          }
+        }));
         setData(results);
       } catch (err: any) {
         setError(err.message);
@@ -77,19 +92,9 @@ export default function Dashboard() {
   }
 
   // Aggregate totals
-  let totalGmv = 0;
-  let avgIncrementalRate = 0;
-  let count = 0;
-  let totalRecoveries = 0;
-
-  Object.values(data).forEach((cohortData) => {
-    totalGmv += cohortData.estimated_incremental_gmv;
-    avgIncrementalRate += cohortData.incremental_recovery_rate;
-    totalRecoveries += cohortData.treatment.recoveries;
-    count++;
-  });
-  
-  if (count > 0) avgIncrementalRate /= count;
+  const totalGmv = summary?.totalIncrementalGmv ?? 0;
+  const avgIncrementalRate = summary?.averageIncrementalRate ?? 0;
+  const totalRecoveries = summary?.activeInterventions ?? 0;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
