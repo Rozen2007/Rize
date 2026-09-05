@@ -323,29 +323,29 @@ When ENI exceeds threshold (e.g., ₹5000), human approval is required:
 ┌──────────────────────────────────────────────────────────────┐
 │  DASHBOARD: APPROVAL QUEUE                                   │
 │                                                              │
-│  ┌─ Incident inc_abc123 ───────────────────────────────────┐│
-│  │ Checkout: chk_xyz789                                     ││
-│  │ Order Value: ₹8,000                                      ││
-│  │ Action: 15% Discount (₹1,200)                           ││
-│  │ ENI: ₹7,500                                             ││
-│  │ Recovery Confidence: 78%                                ││
-│  │                                                          ││
-│  │ Why This Decision:                                       ││
-│  │ "High-confidence price friction (0.92). Discount of     ││
-│  │  ₹1,200 generates ENI of ₹7,500, maximizing revenue.   ││
-│  │  Post-discount margin (12%) exceeds minimum floor       ││
-│  │  (10%). This decision impacts high order value."        ││
-│  │                                                          ││
-│  │ SMS Copy (Preview):                                      ││
-│  │ "Complete your order for just ₹6,800. Limited offer!"   ││
-│  │                                                          ││
-│  │ Audit Trail:                                             ││
-│  │ ├─ 09:15:32 | TOURNAMENT_SELECTED_DISCOUNT | ₹7500    ││
-│  │ └─ 09:15:33 | HIGH_ENI_REQUIRES_APPROVAL | ₹7500      ││
-│  │                                                          ││
-│  │ [Approve & Send] [Reject]                              ││
-│  └─────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────┘
+│  ┌─ Incident inc_abc123 ───────────────────────────────────┐ │
+│  │ Checkout: chk_xyz789                                    │ │
+│  │ Order Value: ₹8,000                                     │ │
+│  │ Action: 15% Discount (₹1,200)                           │ │
+│  │ ENI: ₹7,500                                             │ │
+│  │ Recovery Confidence: 78%                                │ │
+│  │                                                         │ │
+│  │ Why This Decision:                                      │ │
+│  │ "High-confidence price friction (0.92). Discount of     │ │
+│  │  ₹1,200 generates ENI of ₹7,500, maximizing revenue.    │ │
+│  │  Post-discount margin (12%) exceeds minimum floor       │ │
+│  │  (10%). This decision impacts high order value."        │ │
+│  │                                                         │ │
+│  │ SMS Copy (Preview):                                     │ │
+│  │ "Complete your order for just ₹6,800. Limited offer!"   │ │
+│  │                                                         │ │
+│  │ Audit Trail:                                            │ │
+│  │ ├─ 09:15:32 | TOURNAMENT_SELECTED_DISCOUNT | ₹7500      │ │
+│  │ └─ 09:15:33 | HIGH_ENI_REQUIRES_APPROVAL | ₹7500        │ │
+│  │                                                         │ │
+│  │ [Approve & Send] [Reject]                               │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────── ┘
                            │
                   ┌────────┴────────┐
                   │                 │
@@ -357,7 +357,7 @@ When ENI exceeds threshold (e.g., ₹5000), human approval is required:
         │ POST /approve    │   │ APPROVER         │
         │                  │   │                  │
         │ Generate copy    │   │ Write audit:     │
-        │ (Groq LLM)      │   │ HUMAN_REJECTED   │
+        │ (Groq LLM)       │   │ HUMAN_REJECTED   │
         │                  │   │                  │
         │ Store link URL   │   │ No SMS sent to   │
         │                  │   │ customer         │

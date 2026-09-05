@@ -118,15 +118,16 @@ describe('POST /internal/ingest', () => {
     // Since we mock classifyFailureWithTimeout, we can simulate what happens if it resolved to the fallback.
     (classifyFailureWithTimeout as any).mockResolvedValue({ reason: 'PRICE_FRICTION', confidence: 0.75 });
     
-    // With 0.75 confidence and default minClassifierConfidence = 0.8, discount should be ineligible.
+    // With 0.75 confidence and the default minClassifierConfidence = 0.8, discounts are gated off
+    // (blueprint C2) → the recovery link wins the tournament.
     const payload = { merchantId: 'm1', orderValue: 1000, errorCode: 'TIMEOUT', errorDesc: 'desc', device: 'mobile', paymentMethod: 'upi', customerPhone: '999', checkoutId: 'chk1', razorpayEventId: 'ev1', mockMerchantConfig: { controlGroupRatio: 0.0, grossMarginRatio: 0.40, mdrRate: 0.02, maxDiscountCap: 0.15, minMarginFloor: 0.10, minClassifierConfidence: 0.8 } };
     
     await request(app).post('/internal/ingest').set('x-internal-key', validKey).send(payload);
     
     const dbIncidents = await db.select().from(incidents);
     expect(dbIncidents[0]!.status).toBe('EXECUTED_PENDING_SETTLEMENT');
-    // Since confidence doesn't block discount in PRD, the optimal ENI is chosen
-    expect(dbIncidents[0]!.winningAction).toBe('TARGETED_DYNAMIC_DISCOUNT');
+    // Confidence 0.75 < 0.8 gates the discount → most ENI-positive eligible candidate is the link
+    expect(dbIncidents[0]!.winningAction).toBe('PAYMENT_RECOVERY_LINK');
   });
 
   it('10.B / 10.H: Valid ingest with PRICE_FRICTION creates incident + audit + link', async () => {
