@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-import { db, merchants, incidents, cohortStats } from '@rize/db';
+import { db, merchants, incidents, cohortStats, auditLedger } from '@rize/db';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -89,7 +89,9 @@ async function seed() {
   }).onConflictDoNothing();
 
   // ── clean up previous dataset rows ───────────────────────────────────────
+  // Order matters: audit_ledger references incidents, so wipe it first
   console.log('Clearing previous synthetic dataset...');
+  await db.delete(auditLedger).catch(() => {});
   await db.delete(cohortStats).catch(() => {});
   await db.delete(incidents).catch(() => {});
 
